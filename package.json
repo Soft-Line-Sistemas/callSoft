@@ -1,0 +1,12 @@
+{
+  "name": "callsoft",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "dev:server": "npm run -w server dev",
+    "dev:web": "npm run -w web dev",
+    "build": "npm run -w server build && npm run -w web build",
+    "start": "npm run -w server start && npm run -w web start"
+  }
+}

@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CALLSOFT - Apresentação para o Cliente</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #a855f7;
+            --primary-dark: #7c3aed;
+            --secondary: #3b82f6;
+            --accent: #06b6d4;
+            --whatsapp: #25d366;
+            --orange: #f97316;
+            --bg-dark: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.8);
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        .slide {
+            display: none;
+            min-height: 100vh;
+            padding: 50px 80px;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #1e1b4b 50%, var(--bg-dark) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slide::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at center, rgba(168, 85, 247, 0.08) 0%, transparent 50%);
+            animation: pulse 10s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+        }
+
+        .slide.active {
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.6s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .content {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+            line-height: 1.1;
+        }
+
+        h2 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.75rem;
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+
+        .subtitle {
+            font-size: 1.4rem;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.75rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 20px 40px rgba(168, 85, 247, 0.15);
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-icon.purple {
+            background: rgba(168, 85, 247, 0.2);
+        }
+
+        .card-icon.blue {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .card-icon.green {
+            background: rgba(37, 211, 102, 0.2);
+        }
+
+        .card-icon.cyan {
+            background: rgba(6, 182, 212, 0.2);
+        }
+
+        .card-icon.orange {
+            background: rgba(249, 115, 22, 0.2);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.4rem 0.9rem;
+            background: rgba(168, 85, 247, 0.2);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--primary);
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .badge.green {
+            background: rgba(37, 211, 102, 0.2);
+            border-color: var(--whatsapp);
+            color: var(--whatsapp);
+        }
+
+        .badge.blue {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--secondary);
+            color: var(--secondary);
+        }
+
+        .badge.orange {
+            background: rgba(249, 115, 22, 0.2);
+            border-color: var(--orange);
+            color: var(--orange);
+        }
+
+        .navigation {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn.primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+
+        .nav-btn.outline {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text);
+        }
+
+        .nav-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .slide-counter {
+            position: fixed;
+            bottom: 30px;
+            right: 80px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            z-index: 100;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+
+        .feature-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 0.9rem;
+            font-size: 1rem;
+            color: var(--text-muted);
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            color: var(--whatsapp);
+            font-weight: bold;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-size: 4.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .center-content {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .two-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .phone-mockup {
+            width: 280px;
+            height: 520px;
+            background: #111;
+            border-radius: 36px;
+            padding: 12px;
+            border: 3px solid #333;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .phone-mockup::before {
+            content: '';
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 20px;
+            background: #222;
+            border-radius: 10px;
+        }
+
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #075e54 0%, #128c7e 100%);
+            border-radius: 28px;
+            padding: 50px 15px 15px;
+            overflow: hidden;
+        }
+
+        .chat-message {
+            background: white;
+            color: #111;
+            padding: 10px 14px;
+            border-radius: 0 12px 12px 12px;
+            margin-bottom: 10px;
+            font-size: 0.8rem;
+            max-width: 85%;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-message.sent {
+            background: #dcf8c6;
+            margin-left: auto;
+            border-radius: 12px 0 12px 12px;
+        }
+
+        .chat-message.menu {
+            background: #fff3cd;
+        }
+
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+
+        .flow-box {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .flow-box.highlight {
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+        }
+
+        .flow-box.whatsapp {
+            border-color: var(--whatsapp);
+            box-shadow: 0 0 20px rgba(37, 211, 102, 0.3);
+        }
+
+        .flow-arrow {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        .benefit-card {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .benefit-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .stats-grid {
+            display: flex;
+            gap: 4rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--whatsapp) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .screen-mockup {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .screen-header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px 16px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .screen-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff5f57;
+        }
+
+        .screen-dot:nth-child(2) {
+            background: #ffbd2e;
+        }
+
+        .screen-dot:nth-child(3) {
+            background: #28ca41;
+        }
+
+        .screen-content {
+            padding: 20px;
+        }
+
+        .ticket-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .ticket-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .ticket-status.new {
+            background: rgba(168, 85, 247, 0.3);
+            color: var(--primary);
+        }
+
+        .ticket-status.progress {
+            background: rgba(59, 130, 246, 0.3);
+            color: var(--secondary);
+        }
+
+        .ticket-status.done {
+            background: rgba(37, 211, 102, 0.3);
+            color: var(--whatsapp);
+        }
+
+        .pricing-card {
+            background: var(--bg-card);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .pricing-card.featured {
+            border-color: var(--primary);
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(168, 85, 247, 0.3);
+        }
+
+        .price {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--text);
+            margin: 1rem 0;
+        }
+
+        .price span {
+            font-size: 1rem;
+            font-weight: 400;
+            color: var(--text-muted);
+        }
+
+        .approval-box {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+            border: 2px solid var(--primary);
+            border-radius: 20px;
+            padding: 3rem;
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .approval-box h2 {
+            color: var(--primary);
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 16px 48px;
+            background: linear-gradient(135deg, var(--whatsapp) 0%, #128c7e 100%);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 12px;
+            text-decoration: none;
+            margin-top: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .cta-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(37, 211, 102, 0.4);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Slide 1: Boas-vindas -->
+    <div class="slide active" id="slide1">
+        <div class="content center-content">
+            <div class="logo">CALLSOFT</div>
+            <h1>Gestão Inteligente de Atendimento</h1>
+            <p class="subtitle">Transforme seu atendimento ao cliente com automação e WhatsApp integrado</p>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value">24/7</div>
+                    <div class="stat-label">Disponibilidade</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">-70%</div>
+                    <div class="stat-label">Tempo de Resposta</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">+95%</div>
+                    <div class="stat-label">Satisfação do Cliente</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 3rem;">
+                <span class="badge green">WhatsApp Integrado</span>
+                <span class="badge blue">Cotações Automáticas</span>
+                <span class="badge orange">Gestão Completa</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 2: O Problema -->
+    <div class="slide" id="slide2">
+        <div class="content">
+            <h2>😰 Os Desafios do Atendimento Hoje</h2>
+            <p>Sua empresa enfrenta esses problemas?</p>
+
+            <div class="grid" style="margin-top: 2rem;">
+                <div class="card">
+                    <div class="card-icon orange">📞</div>
+                    <h3>Clientes Perdidos</h3>
+                    <p style="font-size: 0.95rem;">Mensagens não respondidas, ligações perdidas, clientes frustrados que
+                        vão para a concorrência</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon orange">⏰</div>
+                    <h3>Demora no Atendimento</h3>
+                    <p style="font-size: 0.95rem;">Horas ou dias para responder uma simples cotação, cliente já fechou
+                        com outro</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon orange">📋</div>
+                    <h3>Desorganização</h3>
+                    <p style="font-size: 0.95rem;">Pedidos em papel, planilhas bagunçadas, sem histórico centralizado
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-icon orange">🔄</div>
+                    <h3>Trabalho Repetitivo</h3>
+                    <p style="font-size: 0.95rem;">Equipe desperdiça tempo com tarefas manuais que podem ser
+                        automatizadas</p>
+                </div>
+            </div>
+
+            <div class="approval-box" style="margin-top: 2rem; padding: 1.5rem;">
+                <p style="font-size: 1.1rem; color: var(--text);"><strong>O resultado?</strong> Perda de vendas,
+                    clientes insatisfeitos e equipe sobrecarregada</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3: A Solução -->
+    <div class="slide" id="slide3">
+        <div class="content">
+            <h2>✨ A Solução: CALLSOFT</h2>
+            <p>Um sistema completo que centraliza, automatiza e agiliza seu atendimento</p>
+
+            <div class="grid grid-4" style="margin-top: 2rem;">
+                <div class="card benefit-card">
+                    <div class="benefit-icon">📱</div>
+                    <h3>WhatsApp Integrado</h3>
+                    <p style="font-size: 0.9rem;">Atenda clientes direto pelo WhatsApp com chatbot e respostas
+                        automáticas</p>
+                </div>
+                <div class="card benefit-card">
+                    <div class="benefit-icon">🎫</div>
+                    <h3>Tickets Organizados</h3>
+                    <p style="font-size: 0.9rem;">Cada pedido vira um ticket rastreável com histórico completo</p>
+                </div>
+                <div class="card benefit-card">
+                    <div class="benefit-icon">💰</div>
+                    <h3>Cotações Rápidas</h3>
+                    <p style="font-size: 0.9rem;">Gere cotações e acompanhe o status de cada negociação</p>
+                </div>
+                <div class="card benefit-card">
+                    <div class="benefit-icon">🔔</div>
+                    <h3>Notificações</h3>
+                    <p style="font-size: 0.9rem;">Cliente sempre informado sobre o andamento do seu pedido</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 4: Como Funciona - WhatsApp -->
+    <div class="slide" id="slide4">
+        <div class="content">
+            <h2>📱 Como o Cliente vai usar - WhatsApp</h2>
+            <p>Atendimento rápido e prático pelo canal que todo mundo usa</p>
+
+            <div class="two-columns" style="margin-top: 2rem;">
+                <div>
+                    <h3 style="margin-bottom: 1.5rem;">Fluxo de Atendimento</h3>
+
+                    <div class="card" style="margin-bottom: 1rem;">
+                        <div class="step-number">1</div>
+                        <h3>Cliente Envia "Oi"</h3>
+                        <p style="font-size: 0.9rem;">WhatsApp recebe a mensagem e ativa o chatbot automaticamente</p>
+                    </div>
+
+                    <div class="card" style="margin-bottom: 1rem;">
+                        <div class="step-number">2</div>
+                        <h3>Menu de Opções</h3>
+                        <p style="font-size: 0.9rem;">Cliente escolhe: Solicitar cotação, consultar pedido ou falar com
+                            atendente</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="step-number">3</div>
+                        <h3>Ticket Criado</h3>
+                        <p style="font-size: 0.9rem;">Sistema gera automaticamente um ticket e notifica a equipe</p>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="phone-mockup">
+                        <div class="phone-screen">
+                            <div class="chat-message">
+                                Olá! 👋
+                            </div>
+                            <div class="chat-message menu">
+                                <strong>Bem-vindo à Empresa!</strong><br><br>
+                                📋 1) Solicitar Cotação<br>
+                                🔍 2) Consultar Pedido<br>
+                                👤 3) Falar com Atendente
+                            </div>
+                            <div class="chat-message sent">
+                                1
+                            </div>
+                            <div class="chat-message">
+                                ✅ Pedido #1234 criado!<br>
+                                Nossa equipe entrará em contato em breve.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 5: Cotações e Tickets -->
+    <div class="slide" id="slide5">
+        <div class="content">
+            <h2>💰 Cotações e Gestão de Pedidos</h2>
+            <p>Acompanhe cada solicitação do início ao fim</p>
+
+            <div class="two-columns" style="margin-top: 2rem;">
+                <div>
+                    <h3>O que você pode fazer:</h3>
+                    <ul class="feature-list" style="margin-top: 1.5rem;">
+                        <li>Receber solicitações de cotação via WhatsApp ou Web</li>
+                        <li>Visualizar todos os pedidos em um dashboard centralizado</li>
+                        <li>Atribuir pedidos para atendentes específicos</li>
+                        <li>Acompanhar status: Solicitado → Em Atendimento → Concluído</li>
+                        <li>Histórico completo de cada interação</li>
+                        <li>Cliente recebe atualizações automáticas</li>
+                    </ul>
+
+                    <div style="margin-top: 2rem;">
+                        <span class="badge">Cotações</span>
+                        <span class="badge blue">Orçamentos</span>
+                        <span class="badge green">Pedidos</span>
+                        <span class="badge orange">Suporte</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="screen-mockup">
+                        <div class="screen-header">
+                            <div class="screen-dot"></div>
+                            <div class="screen-dot"></div>
+                            <div class="screen-dot"></div>
+                        </div>
+                        <div class="screen-content">
+                            <div style="margin-bottom: 16px;">
+                                <h3 style="color: var(--text);">📋 Últimos Tickets</h3>
+                            </div>
+                            <div class="ticket-row">
+                                <div>
+                                    <div style="color: var(--text); font-weight: 500;">#1234 - Cotação de Peças</div>
+                                    <div style="color: var(--text-muted); font-size: 0.8rem;">Cliente: João Silva</div>
+                                </div>
+                                <div class="ticket-status new">Novo</div>
+                            </div>
+                            <div class="ticket-row">
+                                <div>
+                                    <div style="color: var(--text); font-weight: 500;">#1233 - Orçamento Serviço</div>
+                                    <div style="color: var(--text-muted); font-size: 0.8rem;">Cliente: Maria Santos
+                                    </div>
+                                </div>
+                                <div class="ticket-status progress">Em Andamento</div>
+                            </div>
+                            <div class="ticket-row">
+                                <div>
+                                    <div style="color: var(--text); font-weight: 500;">#1232 - Pedido Equipamento</div>
+                                    <div style="color: var(--text-muted); font-size: 0.8rem;">Cliente: Carlos Lima</div>
+                                </div>
+                                <div class="ticket-status done">Concluído</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 6: Objeto das Compras -->
+    <div class="slide" id="slide6">
+        <div class="content">
+            <h2>🛒 Objeto das Compras - O que o Cliente Solicita</h2>
+            <p>O sistema gerencia qualquer tipo de solicitação do seu negócio</p>
+
+            <div class="grid grid-3" style="margin-top: 2rem;">
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🔧</div>
+                    <h3>Peças e Produtos</h3>
+                    <p style="font-size: 0.9rem;">Cotações de peças, equipamentos, materiais</p>
+                    <ul class="feature-list" style="text-align: left; margin-top: 1rem;">
+                        <li>Descrição detalhada</li>
+                        <li>Quantidade</li>
+                        <li>Urgência</li>
+                    </ul>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🛠️</div>
+                    <h3>Serviços</h3>
+                    <p style="font-size: 0.9rem;">Orçamentos de manutenção, conserto, instalação</p>
+                    <ul class="feature-list" style="text-align: left; margin-top: 1rem;">
+                        <li>Tipo de serviço</li>
+                        <li>Local/Endereço</li>
+                        <li>Data proposta</li>
+                    </ul>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">💼</div>
+                    <h3>Suporte</h3>
+                    <p style="font-size: 0.9rem;">Dúvidas, reclamações, acompanhamento</p>
+                    <ul class="feature-list" style="text-align: left; margin-top: 1rem;">
+                        <li>Problema relatado</li>
+                        <li>Histórico do cliente</li>
+                        <li>Prioridade</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem; text-align: center;">
+                <p style="color: var(--text); font-size: 1.1rem;"><strong>💡 Flexível:</strong> O sistema se adapta ao
+                    seu tipo de negócio - seja varejo, serviços, indústria ou atacado</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 7: Automações -->
+    <div class="slide" id="slide7">
+        <div class="content">
+            <h2>⚡ Automações que Agilizam seu Trabalho</h2>
+            <p>Menos trabalho manual, mais tempo para vender</p>
+
+            <div class="flow-diagram" style="margin-bottom: 2rem;">
+                <div class="flow-box whatsapp">
+                    <div style="font-size: 1.5rem;">📱</div>
+                    <strong>Cliente</strong>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-box">
+                    <div style="font-size: 1.5rem;">🤖</div>
+                    <strong>Chatbot</strong>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-box highlight">
+                    <div style="font-size: 1.5rem;">🎫</div>
+                    <strong>Ticket</strong>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-box">
+                    <div style="font-size: 1.5rem;">🔔</div>
+                    <strong>Notificação</strong>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-box whatsapp">
+                    <div style="font-size: 1.5rem;">✅</div>
+                    <strong>Cliente Informado</strong>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <h3>🤖 Chatbot WhatsApp</h3>
+                    <ul class="feature-list">
+                        <li>Resposta instantânea 24 horas</li>
+                        <li>Menu interativo para cliente escolher</li>
+                        <li>Coleta informações automaticamente</li>
+                        <li>Cria ticket sem intervenção humana</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>🔔 Notificações Automáticas</h3>
+                    <ul class="feature-list">
+                        <li>Cliente recebe SMS/WhatsApp quando status muda</li>
+                        <li>Confirmação de recebimento do pedido</li>
+                        <li>Aviso de conclusão do serviço</li>
+                        <li>Lembrete de acompanhamento</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 8: Integrações -->
+    <div class="slide" id="slide8">
+        <div class="content">
+            <h2>🔗 Integrações Disponíveis</h2>
+            <p>Conecte o CALLSOFT com as ferramentas que você já usa</p>
+
+            <div class="grid grid-4" style="margin-top: 2rem;">
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 0.5rem;">📱</div>
+                    <h3>WhatsApp</h3>
+                    <p style="font-size: 0.85rem;">Chatbot e notificações</p>
+                    <span class="badge green" style="margin-top: 0.5rem;">Ativo</span>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 0.5rem;">📧</div>
+                    <h3>E-mail</h3>
+                    <p style="font-size: 0.85rem;">Conversão de e-mails em tickets</p>
+                    <span class="badge blue" style="margin-top: 0.5rem;">Disponível</span>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 0.5rem;">🌐</div>
+                    <h3>Web</h3>
+                    <p style="font-size: 0.85rem;">Dashboard e gestão</p>
+                    <span class="badge green" style="margin-top: 0.5rem;">Ativo</span>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 0.5rem;">📊</div>
+                    <h3>Relatórios</h3>
+                    <p style="font-size: 0.85rem;">Gráficos e métricas</p>
+                    <span class="badge green" style="margin-top: 0.5rem;">Ativo</span>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <h3>🔮 Próximas Integrações</h3>
+                <div style="margin-top: 1rem;">
+                    <span class="badge">API REST</span>
+                    <span class="badge">ERP</span>
+                    <span class="badge">CRM</span>
+                    <span class="badge">Nota Fiscal</span>
+                    <span class="badge">Pagamentos</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 9: Dashboard -->
+    <div class="slide" id="slide9">
+        <div class="content">
+            <h2>📊 Visão Gerencial - Dashboard</h2>
+            <p>Acompanhe tudo em tempo real com gráficos e indicadores</p>
+
+            <div class="grid" style="margin-top: 2rem;">
+                <div class="card">
+                    <h3>🥧 Distribuição por Status</h3>
+                    <p style="font-size: 0.9rem; margin-bottom: 1rem;">Visualize como estão distribuídos seus tickets
+                    </p>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 16px; height: 16px; background: var(--primary); border-radius: 4px;">
+                            </div>
+                            <span style="font-size: 0.9rem;">Solicitado (25%)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 16px; height: 16px; background: var(--secondary); border-radius: 4px;">
+                            </div>
+                            <span style="font-size: 0.9rem;">Em Atendimento (15%)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 16px; height: 16px; background: var(--whatsapp); border-radius: 4px;">
+                            </div>
+                            <span style="font-size: 0.9rem;">Concluído (55%)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="width: 16px; height: 16px; background: var(--orange); border-radius: 4px;">
+                            </div>
+                            <span style="font-size: 0.9rem;">Pendente (5%)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>⚡ KPIs em Destaque</h3>
+                    <p style="font-size: 0.9rem; margin-bottom: 1rem;">Indicadores-chave para sua gestão</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div
+                            style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--orange);">57</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">Em Aberto</div>
+                        </div>
+                        <div
+                            style="text-align: center; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--whatsapp);">94%</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">Resolvidos</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid" style="margin-top: 1.5rem;">
+                <div class="card">
+                    <h3>📈 Tickets por Período</h3>
+                    <p style="font-size: 0.9rem;">Acompanhe a evolução ao longo do tempo</p>
+                </div>
+                <div class="card">
+                    <h3>⏱️ Tempo Médio de Atendimento</h3>
+                    <p style="font-size: 0.9rem;">Monitore a eficiência da sua equipe</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 10: Benefícios -->
+    <div class="slide" id="slide10">
+        <div class="content">
+            <h2>🎯 Benefícios para sua Empresa</h2>
+            <p>O que você ganha com o CALLSOFT</p>
+
+            <div class="grid grid-3" style="margin-top: 2rem;">
+                <div class="card benefit-card">
+                    <div class="benefit-icon">⏰</div>
+                    <h3>Economia de Tempo</h3>
+                    <p style="font-size: 0.9rem;">Automatize tarefas repetitivas e libere sua equipe para vender mais
+                    </p>
+                </div>
+                <div class="card benefit-card">
+                    <div class="benefit-icon">💰</div>
+                    <h3>Mais Vendas</h3>
+                    <p style="font-size: 0.9rem;">Nunca mais perca um cliente por demora no atendimento</p>
+                </div>
+                <div class="card benefit-card">
+                    <div class="benefit-icon">😊</div>
+                    <h3>Cliente Satisfeito</h3>
+                    <p style="font-size: 0.9rem;">Atendimento rápido e profissional aumenta a fidelização</p>
+                </div>
+                <div class="card benefit-card">
+                    <div class="benefit-icon">📊</div>
+                    <h3>Controle Total</h3>
+                    <p style="font-size: 0.9rem;">Visibilidade completa de todos os pedidos e métricas</p>
+                </div>
+                <div class="card benefit-card">
+                    <div class="benefit-icon">🔒</div>
+                    <h3>Segurança</h3>
+                    <p style="font-size: 0.9rem;">Dados protegidos com controle de acesso por empresa</p>
+                </div>
+                <div class="card benefit-card">
+                    <div class="benefit-icon">📱</div>
+                    <h3>Onde Estiver</h3>
+                    <p style="font-size: 0.9rem;">Acesse de qualquer lugar pelo navegador ou WhatsApp</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 11: Aprovação -->
+    <div class="slide" id="slide11">
+        <div class="content center-content">
+            <div class="logo" style="font-size: 3.5rem;">CALLSOFT</div>
+            <h1>Pronto para Transformar seu Atendimento?</h1>
+
+            <div class="approval-box" style="max-width: 800px;">
+                <h2>✅ Validação e Aprovação</h2>
+                <p style="margin-top: 1rem; font-size: 1.1rem;">
+                    Este sistema foi desenvolvido para atender às suas necessidades de gestão de atendimento, cotações e
+                    integração WhatsApp.
+                </p>
+
+                <div style="margin-top: 2rem; text-align: left; display: inline-block;">
+                    <ul class="feature-list">
+                        <li>Chatbot WhatsApp para atendimento automático</li>
+                        <li>Gestão completa de tickets e cotações</li>
+                        <li>Notificações automáticas para clientes</li>
+                        <li>Dashboard com métricas em tempo real</li>
+                        <li>Multi-canal: WhatsApp, E-mail e Web</li>
+                    </ul>
+                </div>
+
+                <a href="#" class="cta-button" onclick="alert('Obrigado! Entraremos em contato em breve.')">
+                    👍 Aprovar Projeto
+                </a>
+            </div>
+
+            <p style="margin-top: 2rem; font-size: 1rem;">Dúvidas? Estamos à disposição para esclarecer qualquer ponto.
+            </p>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="navigation">
+        <button class="nav-btn outline" onclick="prevSlide()">← Anterior</button>
+        <button class="nav-btn primary" onclick="nextSlide()">Próximo →</button>
+    </div>
+    <div class="slide-counter">
+        <span id="currentSlide">1</span> / <span id="totalSlides">11</span>
+    </div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 11;
+
+        function showSlide(n) {
+            const slides = document.querySelectorAll('.slide');
+            slides.forEach(slide => slide.classList.remove('active'));
+
+            if (n > totalSlides) currentSlide = 1;
+            if (n < 1) currentSlide = totalSlides;
+
+            document.getElementById(`slide${currentSlide}`).classList.add('active');
+            document.getElementById('currentSlide').textContent = currentSlide;
+        }
+
+        function nextSlide() {
+            currentSlide++;
+            showSlide(currentSlide);
+        }
+
+        function prevSlide() {
+            currentSlide--;
+            showSlide(currentSlide);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            }
+            if (e.key === 'ArrowLeft') {
+                prevSlide();
+            }
+        });
+
+        let touchStartX = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+        document.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) nextSlide();
+                else prevSlide();
+            }
+        });
+    </script>
+</body>
+
+</html>

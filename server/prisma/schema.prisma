@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Empresa {
+  codEmp       Int      @id @default(autoincrement())
+  nomeFantasia String   @map("Empresa")
+  razaoSocial  String   @map("Razao")
+  cnpj         String?  @map("CGC")
+  inscEstadual String?  @map("IE")
+  im           String?  @map("IM")
+  cep          String?
+  endereco     String?
+  bairro       String?
+  cidade       String?
+  estado       String?
+  telefone     String?  @map("Tel")
+  telefoneSec  String?  @map("Tel2")
+  cabecalho    String?
+  observacao   String?
+  ativo        Boolean  @default(true)
+  servicos     Servico[]
+
+  @@map("EMPRESA")
+}
+
+model Usuario {
+  codUsu             Int                 @id @default(autoincrement())
+  login              String              @unique @map("Usuario")
+  senhaHash          String              @map("Senha")
+  email              String?             @map("EMail")
+  avatarUrl          String?             @map("CaminhoFoto")
+  op91               String              @default("") @map("Op91")
+  op28               String              @default("") @map("Op28")
+  op34               String              @default("0") @map("Op34")
+  op52               String              @default("0") @map("Op52")
+  estoqueLocal       String              @default("0") @map("EstoqueLocal")
+  inativo            String              @default("") @map("Inativo")
+  dataCadastro       DateTime            @default(now()) @map("DataCad")
+  horaCadastro       String              @default("00:00") @map("HoraCad")
+  auditorias         ServicoHistorico[]
+  servicosModificados Servico[]          @relation("UltimaModificacao")
+
+  @@map("USUARIO")
+}
+
+model Servico {
+  pedido            Int                @id @default(autoincrement())
+  data              DateTime           @map("Data")
+  horaProposta      String?
+  contato           String?            @map("Contato")
+  tellResp          String?            @map("TellResp")
+  responsavel       String?            @map("Responsavel")
+  solicitacao       String             @map("Reclamado")
+  status            String             @default("Solicitado")
+  /// Canal de Origem do ticket: WHATSAPP | EMAIL | WEB
+  canalOrigem       String             @default("WEB") @map("CanalOrigem")
+  observacao        String?
+  codEmp            Int?
+  empresa           Empresa?           @relation(fields: [codEmp], references: [codEmp])
+  codUsuUltimoEdit  Int?               @map("CodUsu")
+  usuario           Usuario?           @relation("UltimaModificacao", fields: [codUsuUltimoEdit], references: [codUsu])
+  historico         ServicoHistorico[]
+
+  @@map("SERVICO")
+}
+
+model ServicoHistorico {
+  id              Int       @id @default(autoincrement())
+  pedidoId        Int       @map("Pedido")
+  servico         Servico   @relation(fields: [pedidoId], references: [pedido], onDelete: NoAction, onUpdate: NoAction)
+  data            DateTime
+  statusAnterior  String?
+  statusNovo      String?
+  historico       String    @map("Historico")
+  codUsu          Int?
+  autor           Usuario?  @relation(fields: [codUsu], references: [codUsu], onDelete: SetNull, onUpdate: NoAction)
+
+  @@map("SERVICO_HIS")
+}
