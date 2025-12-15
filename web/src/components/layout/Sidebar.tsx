@@ -10,6 +10,7 @@ import {
     Building2,
     ListChecks,
     LucideIcon,
+    User2Icon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -27,6 +28,7 @@ const navItems: NavItem[] = [
     { name: "Relatórios", href: "/reports", icon: BarChart3 },
     { name: "Configurações", href: "/settings", icon: Settings },
     { name: "Criar Empresa", href: "/settings/criar-empresa", icon: Building2 },
+    { name: "Criar Usuario", href: "/settings/criar-usuario", icon: User2Icon },
 ];
 
 export function Sidebar() {

@@ -30,24 +30,32 @@ model Empresa {
 }
 
 model Usuario {
-  codUsu             Int                 @id @default(autoincrement())
-  login              String              @unique @map("Usuario")
-  senhaHash          String              @map("Senha")
-  email              String?             @map("EMail")
-  avatarUrl          String?             @map("CaminhoFoto")
-  op91               String              @default("") @map("Op91")
-  op28               String              @default("") @map("Op28")
-  op34               String              @default("0") @map("Op34")
-  op52               String              @default("0") @map("Op52")
-  estoqueLocal       String              @default("0") @map("EstoqueLocal")
-  inativo            String              @default("") @map("Inativo")
-  dataCadastro       DateTime            @default(now()) @map("DataCad")
-  horaCadastro       String              @default("00:00") @map("HoraCad")
-  auditorias         ServicoHistorico[]
-  servicosModificados Servico[]          @relation("UltimaModificacao")
+  codUsu        Int      @id @default(autoincrement()) @map("CodUsu")
+
+  login         String   @db.VarChar(20) @unique @map("Usuario")
+  senha         String   @db.VarChar(4)  @map("Senha")
+
+  email         String?  @db.VarChar(40) @map("EMail")
+  caminhoFoto   String?  @db.VarChar(100) @map("CaminhoFoto")
+
+  op8           String   @db.VarChar(1) @default("") @map("Op8")
+  op91          String   @db.VarChar(1) @default("") @map("Op91")
+  op28          String   @db.VarChar(1) @default("") @map("Op28")
+
+  op34          String   @db.VarChar(1) @default("0") @map("Op34")
+  op52          String   @db.VarChar(1) @default("0") @map("Op52")
+
+  estoqueLocal  String   @db.VarChar(1) @default("0") @map("EstoqueLocal")
+  inativo       String   @db.VarChar(1) @default("") @map("Inativo")
+
+  dataCad       DateTime @default(now()) @map("DataCad")
+  horaCad       String   @db.VarChar(5)  @default("00:00") @map("HoraCad")
 
   @@map("USUARIO")
+  servicos Servico[] @relation("UltimaModificacao")
+  servicoHistoricos ServicoHistorico[]
 }
+
 
 model Servico {
   pedido            Int                @id @default(autoincrement())
