@@ -15,21 +15,24 @@ export function TicketsList() {
       <table className="min-w-full text-sm">
         <thead>
           <tr>
-            <th className="text-left">Pedido</th>
+            <th className="text-left">Número</th>
             <th className="text-left">Status</th>
             <th className="text-left">Data</th>
-            <th className="text-left">Hora Proposta</th>
+            <th className="text-left">Hora</th>
           </tr>
         </thead>
         <tbody>
-          {(data?.tickets ?? []).map((t) => (
-            <tr key={t.pedido}>
-              <td>{t.pedido}</td>
-              <td>{t.status}</td>
-              <td>{new Date(t.data).toLocaleDateString()}</td>
-              <td>{t.horaProposta ?? "-"}</td>
-            </tr>
-          ))}
+          {(data?.tickets ?? []).map((t) => {
+            const createdAt = t.createdAt ? new Date(t.createdAt) : null;
+            return (
+              <tr key={t.id}>
+                <td>{t.numero}</td>
+                <td>{t.status}</td>
+                <td>{createdAt ? createdAt.toLocaleDateString() : "-"}</td>
+                <td>{createdAt ? createdAt.toLocaleTimeString() : "-"}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
