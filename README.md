@@ -1,8 +1,4 @@
-# CALLSOFT
+# CALLSOFT Web
 
-Monorepo contendo `server` (Express + Prisma) e `web` (Next.js). Use `npm` workspaces para gerenciar os pacotes.
-
-Estrutura:
-- `server`: Backend Node.js com Express, Prisma, Winston, JWT, Jest.
-- `web`: Frontend Next.js com TypeScript, Tailwind, Shadcn UI, React Query.
+Next.js App Router com TypeScript, Tailwind, Shadcn UI, React Query e Axios tipado.
 
