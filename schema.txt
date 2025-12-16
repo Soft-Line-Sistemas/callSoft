@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// Nota: MSSQL não suporta enums nativos
+// Os valores serão armazenados como String e validados na aplicação
+// CotacaoStatus: RASCUNHO, ENVIADA, RESPONDIDA, APROVADA, REJEITADA, EXPIRADA, CANCELADA
+// TrackingStatus: PREPARANDO, DESPACHADO, EM_TRANSITO, ENTREGUE, EXTRAVIADO, DEVOLVIDO
+
+model Tenant {
+  id            String         @id @default(uuid()) @db.NVarChar(1000)
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  apiKeys       ApiKey[]
+  users         User[]
+  roles         Role[]
+  tickets       Ticket[]
+  notifications Notification[]
+  fornecedores  Fornecedor[]
+  cotacoes      Cotacao[]
+}
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id") @db.NVarChar(1000)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  isActive    Boolean   @default(true) @map("is_active")
+  permissions String    @default("{}") @db.NVarChar(MAX)
+  rateLimit   Int       @default(100) @map("rate_limit")
+  windowMs    Int       @default(900000) @map("window_ms")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+
+  @@index([isActive])
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id") @db.NVarChar(1000)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel     String    @db.VarChar(20)
+  provider    String
+  recipient   String
+  subject     String?
+  message     String
+  payload     String?   @db.NVarChar(MAX)
+  metadata    String?   @db.NVarChar(MAX)
+  status      String    @default("PENDING") @db.VarChar(20)
+  error       String?
+  providerRef String?   @map("provider_ref")
+  sentAt      DateTime? @map("sent_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([channel])
+  @@index([status])
+}
+
+model Empresa {
+  codEmp       Int       @id @default(autoincrement())
+  nomeFantasia String    @map("Empresa") @db.VarChar(50)
+  razaoSocial  String    @map("Razao") @db.VarChar(50)
+  cnpj         String?   @map("CGC") @db.VarChar(18)
+  inscEstadual String?   @map("IE") @db.VarChar(15)
+  im           String?   @map("IM") @db.VarChar(15)
+  cep          String?   @db.VarChar(9)
+  endereco     String?   @db.VarChar(80)
+  bairro       String?   @db.VarChar(20)
+  cidade       String?   @db.VarChar(20)
+  estado       String?   @db.VarChar(2)
+  telefone     String?   @map("Tel") @db.VarChar(14)
+  telefoneSec  String?   @map("Tel2") @db.VarChar(14)
+  cabecalho    String?   @db.VarChar(255)
+  observacao   String?   @db.Text
+  ativo        Boolean   @default(true)
+  servicos     Servico[]
+
+  @@map("EMPRESA")
+}
+
+model Usuario {
+  codUsu              Int                @id @default(autoincrement())
+  login               String             @unique @map("Usuario") @db.VarChar(20)
+  senhaHash           String             @map("Senha")
+  email               String?            @map("EMail") @db.VarChar(40)
+  caminhoFoto         String?            @map("CaminhoFoto") @db.VarChar(100)
+  op8                 String             @default("") @map("Op8")  @db.VarChar(1)
+  op91                String             @default("") @map("Op91") @db.VarChar(1)
+  op28                String             @default("") @map("Op28") @db.VarChar(1)
+  op34                String             @default("0") @map("Op34") @db.VarChar(1)
+  op52                String             @default("0") @map("Op52") @db.VarChar(1)
+  estoqueLocal        String             @default("0") @map("EstoqueLocal") @db.VarChar(1)
+  inativo             String             @default("") @map("Inativo") @db.VarChar(1)
+  dataCad             DateTime           @default(now()) @map("DataCad")
+  horaCad             String             @default("00:00") @map("HoraCad") @db.VarChar(5)
+  auditorias          ServicoHistorico[]
+  servicosModificados Servico[]          @relation("UltimaModificacao")
+
+  @@map("USUARIO")
+}
+
+model Servico {
+  pedido           Int                @id @default(autoincrement())
+  data             DateTime           @map("Data") @db.Date
+  horaProposta     String?            @db.VarChar(5)
+  contato          String?            @map("Contato") @db.VarChar(20)
+  tellResp         String?            @map("TellResp") @db.VarChar(14)
+  responsavel      String?            @map("Responsavel") @db.VarChar(100)
+  solicitacao      String             @map("Reclamado") @db.Text
+  status           String             @default("Solicitado") @db.VarChar(20)
+  observacao       String?            @db.Text
+  codEmp           Int?
+  canalOrigem      String            @default("WEB") @map("CanalOrigem")
+  empresa          Empresa?           @relation(fields: [codEmp], references: [codEmp])
+  codUsuUltimoEdit Int?               @map("CodUsu")
+  usuario          Usuario?           @relation("UltimaModificacao", fields: [codUsuUltimoEdit], references: [codUsu])
+  historico        ServicoHistorico[]
+
+  @@map("SERVICO")
+}
+
+model ServicoHistorico {
+  id             Int        @id @default(autoincrement())
+  pedidoId       Int        @map("Pedido")
+  servico        Servico    @relation(fields: [pedidoId], references: [pedido], onDelete: NoAction, onUpdate: NoAction)
+  data           DateTime   @db.Date
+  hora           String     @db.VarChar(5)
+  statusAnterior String?
+  statusNovo     String?
+  historico      String     @map("Historico") @db.VarChar(255)
+  codUsu         Int?
+  autor          Usuario?   @relation(fields: [codUsu], references: [codUsu], onDelete: SetNull, onUpdate: NoAction)
+  ticketId       String?    @map("TicketId") @db.UniqueIdentifier
+  ticket         Ticket?    @relation(fields: [ticketId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  motivo         String?    @map("Motivo") @db.VarChar(255)
+  observacao     String?    @map("Observacao") @db.VarChar(255)
+  horaProposta   DateTime?  @map("HoraProposta")
+  autorTipo      String?    @map("AutorTipo") @db.VarChar(10)
+  createdAt      DateTime   @default(now()) @map("CreatedAt")
+  portalUserId   String?    @map("PortalUserId") @db.UniqueIdentifier
+  portalUser     User?      @relation("ServicoHistoricoToUser", fields: [portalUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cotacaoId      String?    @map("CotacaoId") @db.UniqueIdentifier
+  cotacao        Cotacao?   @relation(fields: [cotacaoId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fornecedorId   String?    @map("FornecedorId") @db.UniqueIdentifier
+  fornecedor     Fornecedor? @relation(fields: [fornecedorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  campo          String?    @map("Campo") @db.VarChar(100)
+  valorAnterior  String?    @map("ValorAnterior") @db.Text
+  valorNovo      String?    @map("ValorNovo") @db.Text
+
+  @@index([pedidoId])
+  @@index([ticketId])
+  @@index([createdAt])
+  @@index([cotacaoId])
+  @@index([fornecedorId])
+  @@map("SERVICO_HIS")
+}
+
+model Ticket {
+  id           String             @id @default(uuid()) @db.UniqueIdentifier
+  pedido       Int                @unique @default(autoincrement())
+  contatoWpp   String             @db.VarChar(50)
+  solicitacao  String             @db.Text
+  status       String             @default("SOLICITADO") @db.VarChar(30)
+  horaProposta DateTime?
+  empresa      String?            @db.VarChar(100)
+  responsavel  String?            @db.VarChar(100)
+  prioridade   String?            @db.VarChar(20)
+  tenantId     String             @db.NVarChar(1000)
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  historicos   ServicoHistorico[]
+  attachments  TicketAttachment[]
+  cotacoes     Cotacao[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([tenantId])
+}
+
+model TicketAttachment {
+  id               String   @id @default(uuid()) @db.UniqueIdentifier
+  ticketId         String   @db.UniqueIdentifier
+  ticket           Ticket   @relation(fields: [ticketId], references: [id])
+  fileNameOriginal String   @db.NVarChar(255)
+  filePath         String   @db.NVarChar(500)
+  mimeType         String   @db.NVarChar(100)
+  sizeBytes        Int
+  createdAt        DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([createdAt])
+}
+
+model User {
+  id                String             @id @default(uuid()) @db.UniqueIdentifier
+  email             String             @db.NVarChar(255)
+  passwordHash      String             @db.NVarChar(255)
+  isActive          Boolean            @default(true)
+  tenantId          String             @db.NVarChar(1000)
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  roles             UserRole[]
+  historicos        ServicoHistorico[] @relation("ServicoHistoricoToUser")
+  cotacoesCriadas   Cotacao[]          @relation("cotacao_criador")
+  cotacoesAprovadas Cotacao[]          @relation("cotacao_aprovador")
+
+  @@unique([email, tenantId])
+}
+
+model Role {
+  id          String     @id @default(uuid()) @db.UniqueIdentifier
+  name        String     @db.NVarChar(100)
+  permissions String     @default("{}") @db.NVarChar(MAX)
+  tenantId    String     @db.NVarChar(1000)
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users       UserRole[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([name, tenantId])
+}
+
+model UserRole {
+  userId     String   @db.UniqueIdentifier
+  roleId     String   @db.UniqueIdentifier
+  user       User     @relation(fields: [userId], references: [id])
+  role       Role     @relation(fields: [roleId], references: [id])
+  assignedAt DateTime @default(now())
+
+  @@id([userId, roleId])
+}
+
+// ============================================
+// Sistema de Cotações - Novos Models
+// ============================================
+
+model Fornecedor {
+  id                  String             @id @default(uuid()) @db.UniqueIdentifier
+  nome                String             @db.NVarChar(200)
+  pais                String             @db.NVarChar(100)
+  taxId               String?            @db.VarChar(50)
+  email               String?            @db.NVarChar(255)
+  telefone            String?            @db.VarChar(20)
+  endereco            String?            @db.Text
+  condicoesComerciais String?            @db.NVarChar(Max)
+  observacoes         String?            @db.Text
+  isActive            Boolean            @default(true)
+  tenantId            String             @db.NVarChar(1000)
+  tenant              Tenant             @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cotacoes            Cotacao[]
+  historicos          ServicoHistorico[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([taxId, tenantId], name: "unique_taxId_per_tenant")
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([nome])
+  @@map("fornecedores")
+}
+
+model Cotacao {
+  id                  String            @id @default(uuid()) @db.UniqueIdentifier
+  numero              Int               @unique @default(autoincrement())
+  ticketId            String            @db.UniqueIdentifier
+  ticket              Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  fornecedorId        String            @db.UniqueIdentifier
+  fornecedor          Fornecedor        @relation(fields: [fornecedorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status              String            @default("RASCUNHO") @db.VarChar(20)
+  dataEnvio           DateTime?
+  dataResposta        DateTime?
+  dataExpiracao       DateTime?
+  valorTotal          Decimal?          @db.Decimal(18, 2)
+  descontoGlobal      Decimal?          @db.Decimal(18, 2)
+  descontoTipo        String?           @db.VarChar(20)
+  observacoes         String?           @db.Text
+  prazoEntregaDias    Int?
+  dataPrevistaEntrega DateTime?
+  aprovadoPorUserId   String?           @db.UniqueIdentifier
+  aprovadoPor         User?             @relation(fields: [aprovadoPorUserId], references: [id], name: "cotacao_aprovador", onDelete: NoAction, onUpdate: NoAction)
+  dataAprovacao       DateTime?
+  motivoRejeicao      String?           @db.Text
+  dataRecebimento     DateTime?
+  observacoesRecebimento String?        @db.Text
+  createdBy           String?           @db.UniqueIdentifier
+  creator             User?             @relation(fields: [createdBy], references: [id], name: "cotacao_criador", onDelete: NoAction, onUpdate: NoAction)
+  tenantId            String            @db.NVarChar(1000)
+  tenant              Tenant            @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  itens               ItemCotacao[]
+  trackings           TrackingEntrega[]
+  historicos          ServicoHistorico[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([ticketId])
+  @@index([fornecedorId])
+  @@index([status])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@index([ticketId, fornecedorId, createdAt], name: "idx_cotacao_ticket_fornecedor")
+  @@map("cotacoes")
+}
+
+model ItemCotacao {
+  id            String   @id @default(uuid()) @db.UniqueIdentifier
+  cotacaoId     String   @db.UniqueIdentifier
+  cotacao       Cotacao  @relation(fields: [cotacaoId], references: [id], onDelete: Cascade)
+  codigoPeca    String?  @db.VarChar(100)
+  descricao     String   @db.NVarChar(500)
+  quantidade    Decimal  @db.Decimal(10, 2)
+  unidade       String   @default("UN") @db.VarChar(20)
+  precoUnitario Decimal? @db.Decimal(18, 2)
+  precoTotal    Decimal? @db.Decimal(18, 2)
+  descontoItem  Decimal? @db.Decimal(18, 2)
+  descontoTipo  String?  @db.VarChar(20)
+  observacoes   String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  @@index([cotacaoId])
+  @@map("itens_cotacao")
+}
+
+model TrackingEntrega {
+  id             String   @id @default(uuid()) @db.UniqueIdentifier
+  cotacaoId      String   @db.UniqueIdentifier
+  cotacao        Cotacao  @relation(fields: [cotacaoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  status         String   @db.VarChar(20)
+  localizacao    String?  @db.NVarChar(200)
+  descricao      String?  @db.Text
+  codigoRastreio String?  @db.VarChar(100)
+  transportadora String?  @db.NVarChar(100)
+  urlRastreio    String?  @db.NVarChar(500)
+  dataEvento     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([cotacaoId])
+  @@index([status])
+  @@index([dataEvento])
+  @@map("tracking_entrega")
+}

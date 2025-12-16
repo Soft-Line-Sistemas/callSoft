@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 64232",
     "build": "next build",
-    "start": "next start"
+    "start": "next start -p 64232"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.56.2",
