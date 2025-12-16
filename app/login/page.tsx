@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { api } from "../../src/lib/api";
 import { setAuthToken } from "../../src/lib/auth";
 import { useNotificationStore } from "../../src/store/notificationStore";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../src/components/ui/Card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../src/components/ui/dialog";
 
 export default function LoginPage() {
@@ -36,9 +37,7 @@ export default function LoginPage() {
             
             if (success && data?.token) {
                 setAuthToken(data.token);
-                // Opcional: Salvar dados do usuário se necessário
-                // localStorage.setItem("user", JSON.stringify(data.user));
-
+                
                 addNotification({
                     title: "Bem-vindo!",
                     message: `Login realizado com sucesso. Olá, ${data.user.name}!`,
@@ -92,114 +91,150 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex">
-            {/* Left Side - Gradient */}
-            <div className="hidden lg:flex lg:w-1/2 gradient-primary items-center justify-center p-12">
-                <div className="max-w-md animate-slide-up">
-                    <h1 className="text-5xl font-bold text-white mb-6">CALLSOFT</h1>
-                    <p className="text-xl text-white/90 mb-8">
-                        Sistema de Gestão de Tickets e Integração WhatsApp
+        <div className="min-h-screen flex bg-slate-950 relative overflow-hidden">
+            {/* Background Decor */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px] animate-pulse" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: "1s" }} />
+            </div>
+
+            {/* Left Side - Brand / Info */}
+            <div className="hidden lg:flex lg:w-1/2 relative z-10 flex-col justify-center px-16 text-white">
+                <div className="max-w-lg animate-slide-up">
+                    <div className="mb-8 inline-block">
+                         <h1 className="text-6xl font-extrabold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">
+                            CALLSOFT
+                        </h1>
+                        <div className="h-1 w-24 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full mt-2" />
+                    </div>
+                    
+                    <h2 className="text-3xl font-bold mb-6 text-slate-100">
+                        Gestão Inteligente de Tickets
+                    </h2>
+                    
+                    <p className="text-lg text-slate-400 mb-10 leading-relaxed">
+                        Centralize seu atendimento, automatize processos e integre com WhatsApp em uma única plataforma moderna e eficiente.
                     </p>
-                    <div className="space-y-4 text-white/80">
-                        <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
-                                ✓
+
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-4 group">
+                            <div className="h-12 w-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-purple-400 text-xl">🚀</span>
                             </div>
-                            <p>Gerencie tickets de forma eficiente</p>
+                            <div>
+                                <h3 className="font-semibold text-slate-200">Alta Performance</h3>
+                                <p className="text-sm text-slate-500">Otimizado para agilidade no atendimento</p>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
-                                ✓
+                        
+                        <div className="flex items-center gap-4 group">
+                            <div className="h-12 w-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-blue-400 text-xl">💬</span>
                             </div>
-                            <p>Integração completa com WhatsApp</p>
+                            <div>
+                                <h3 className="font-semibold text-slate-200">WhatsApp Integrado</h3>
+                                <p className="text-sm text-slate-500">Conecte-se diretamente com seus clientes</p>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
-                                ✓
+
+                        <div className="flex items-center gap-4 group">
+                            <div className="h-12 w-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-cyan-400 text-xl">📊</span>
                             </div>
-                            <p>Relatórios detalhados em tempo real</p>
+                            <div>
+                                <h3 className="font-semibold text-slate-200">Dashboard em Tempo Real</h3>
+                                <p className="text-sm text-slate-500">Métricas e KPIs atualizados instantaneamente</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Right Side - Login Form */}
-            <div className="flex-1 flex items-center justify-center p-8 bg-slate-dark">
-                <div className="w-full max-w-md animate-slide-up" style={{ animationDelay: "100ms" }}>
-                    <div className="glass rounded-2xl p-8">
-                        {/* Logo Mobile */}
-                        <div className="text-center mb-8 lg:hidden">
-                            <h1 className="text-3xl font-bold gradient-text">CALLSOFT</h1>
-                        </div>
-
-                        <h2 className="text-2xl font-bold text-white mb-2">Bem-vindo de volta</h2>
-                        <p className="text-slate-400 mb-8">
-                            Entre com suas credenciais para acessar o sistema
-                        </p>
-
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Login */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                    Email
-                                </label>
-                                <Input
-                                    type="email"
-                                    placeholder="admin@callsoft.com"
-                                    leftIcon={<Mail className="h-4 w-4" />}
-                                    required
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
+            <div className="flex-1 flex items-center justify-center p-8 relative z-10">
+                <div className="w-full max-w-md animate-slide-up" style={{ animationDelay: "200ms" }}>
+                    <Card variant="glass-blue" className="border-slate-800/50 shadow-2xl backdrop-blur-xl">
+                        <CardHeader className="pb-2 text-center">
+                            <div className="lg:hidden mb-4">
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                                    CALLSOFT
+                                </h1>
                             </div>
+                            <CardTitle className="text-2xl text-white">Bem-vindo de volta</CardTitle>
+                            <CardDescription className="text-slate-400">
+                                Acesse sua conta para continuar
+                            </CardDescription>
+                        </CardHeader>
+                        
+                        <CardContent className="pt-6">
+                            <form onSubmit={handleSubmit} className="space-y-5">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300 ml-1">Email</label>
+                                    <Input
+                                        type="email"
+                                        placeholder="seu@email.com"
+                                        leftIcon={<Mail className="h-4 w-4 text-slate-400" />}
+                                        required
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="bg-slate-900/50 border-slate-700 focus:border-blue-500/50 focus:ring-blue-500/20 transition-all"
+                                    />
+                                </div>
 
-                            {/* Password */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                    Senha
-                                </label>
-                                <Input
-                                    type={showPassword ? "text" : "password"}
-                                    placeholder="••••••••"
-                                    leftIcon={<Lock className="h-4 w-4" />}
-                                    rightIcon={
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-medium text-slate-300 ml-1">Senha</label>
                                         <button
                                             type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="text-slate-400 hover:text-white transition-colors"
+                                            onClick={() => setIsResetOpen(true)}
+                                            className="text-xs text-blue-400 hover:text-blue-300 transition-colors hover:underline"
                                         >
-                                            {showPassword ? (
-                                                <EyeOff className="h-4 w-4" />
-                                            ) : (
-                                                <Eye className="h-4 w-4" />
-                                            )}
+                                            Esqueceu a senha?
                                         </button>
-                                    }
-                                    required
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                            </div>
+                                    </div>
+                                    <Input
+                                        type={showPassword ? "text" : "password"}
+                                        placeholder="••••••••"
+                                        leftIcon={<Lock className="h-4 w-4 text-slate-400" />}
+                                        rightIcon={
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="text-slate-400 hover:text-white transition-colors"
+                                            >
+                                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </button>
+                                        }
+                                        required
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="bg-slate-900/50 border-slate-700 focus:border-blue-500/50 focus:ring-blue-500/20 transition-all"
+                                    />
+                                </div>
 
-                            <div className="flex justify-end mb-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsResetOpen(true)}
-                                    className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                                <Button
+                                    type="submit"
+                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold py-6 shadow-lg shadow-blue-500/20 transition-all duration-300 transform hover:scale-[1.02]"
+                                    disabled={isLoading}
                                 >
-                                    Esqueceu a senha?
-                                </button>
-                            </div>
-
-                            <Button
-                                type="submit"
-                                className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-                                disabled={isLoading}
-                            >
-                                {isLoading ? "Entrando..." : "Entrar"}
-                            </Button>
-                        </form>
-                    </div>
+                                    {isLoading ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span>Entrando...</span>
+                                        </div>
+                                    ) : (
+                                        "Acessar Sistema"
+                                    )}
+                                </Button>
+                            </form>
+                        </CardContent>
+                        
+                        <CardFooter className="justify-center pt-2 pb-6">
+                            <p className="text-xs text-slate-500">
+                                © {new Date().getFullYear()} CallSoft. Todos os direitos reservados.
+                            </p>
+                        </CardFooter>
+                    </Card>
                 </div>
             </div>
 

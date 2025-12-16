@@ -16,18 +16,20 @@ export function TicketsList() {
         <thead>
           <tr>
             <th className="text-left">Pedido</th>
+            <th className="text-left">Assunto</th>
+            <th className="text-left">Solicitante</th>
             <th className="text-left">Status</th>
             <th className="text-left">Data</th>
-            <th className="text-left">Hora Proposta</th>
           </tr>
         </thead>
         <tbody>
           {(data?.tickets ?? []).map((t) => (
-            <tr key={t.pedido}>
-              <td>{t.pedido}</td>
+            <tr key={t.id}>
+              <td>#{t.numero}</td>
+              <td>{t.subject}</td>
+              <td>{t.clientName}</td>
               <td>{t.status}</td>
-              <td>{new Date(t.data).toLocaleDateString()}</td>
-              <td>{t.horaProposta ?? "-"}</td>
+              <td>{new Date(t.createdAt).toLocaleDateString()}</td>
             </tr>
           ))}
         </tbody>

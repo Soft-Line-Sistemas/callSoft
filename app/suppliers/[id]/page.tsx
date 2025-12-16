@@ -65,28 +65,28 @@ export default function SupplierDetailPage({ params }: { params: { id: string } 
             value: stats?.totalCotacoes.toString() || "0",
             icon: FileText,
             trend: { value: 0, isPositive: true },
-            variant: "primary" as const,
+            variant: "glass-blue" as const,
         },
         {
             title: "Aprovadas",
             value: stats?.cotacoesAprovadas.toString() || "0",
             icon: CheckCircle,
             trend: { value: stats?.taxaAprovacao || 0, isPositive: true },
-            variant: "secondary" as const,
+            variant: "glass-purple" as const,
         },
         {
             title: "Taxa Aprovação",
             value: stats?.taxaAprovacao ? `${stats.taxaAprovacao}%` : "0%",
             icon: CheckCircle,
             trend: { value: 0, isPositive: true },
-            variant: "accent" as const,
+            variant: "glass-cyan" as const,
         },
         {
             title: "Tempo Médio",
             value: stats?.tempoMedioResposta ? `${stats.tempoMedioResposta}h` : "-",
             icon: Clock,
             trend: { value: 0, isPositive: false },
-            variant: "primary" as const,
+            variant: "glass-pink" as const,
         },
     ];
 
@@ -124,7 +124,13 @@ export default function SupplierDetailPage({ params }: { params: { id: string } 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8 animate-slide-up">
                     {kpis.map((kpi, index) => (
                         <div key={kpi.title} style={{ animationDelay: `${index * 100}ms` }}>
-                            <StatCard {...kpi} />
+                            <StatCard 
+                                title={kpi.title}
+                                value={kpi.value}
+                                icon={kpi.icon}
+                                trend={kpi.trend}
+                                variant={kpi.variant}
+                            />
                         </div>
                     ))}
                 </div>
