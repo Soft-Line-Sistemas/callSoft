@@ -3,7 +3,7 @@ import { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../ui/Card";
 import { cn } from "../../lib/utils";
 
-interface StatCardProps {
+export interface StatCardProps {
     title: string;
     value: string | number;
     icon: LucideIcon;

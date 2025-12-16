@@ -1,7 +1,7 @@
 "use client";
 import { Sidebar } from "../../src/components/layout/Sidebar";
 import { Header } from "../../src/components/layout/Header";
-import { StatCard } from "../../src/components/ui/StatCard";
+import { StatCard, StatCardProps } from "../../src/components/ui/StatCard";
 import { Button } from "../../src/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "../../src/components/ui/Card";
 import { TrendingUp, Users, Clock, MessageCircle, Calendar, Download } from "lucide-react";
@@ -18,34 +18,34 @@ export default function ReportsPage() {
         }
     });
 
-    const kpis = [
+    const kpis: StatCardProps[] = [
         {
             title: "Taxa de Resolução",
             value: metrics ? `${Math.round(metrics.taxas.taxaResolucao)}%` : "0%",
             icon: TrendingUp,
             trend: { value: 0, isPositive: true },
-            variant: "primary" as const,
+            variant: "glass-blue" as const,
         },
         {
             title: "Total de Tickets",
             value: metrics?.totais.total.toString() || "0",
             icon: Users, // Using Users icon as placeholder for Total Tickets if needed, or stick to context
             trend: { value: 0, isPositive: true },
-            variant: "secondary" as const,
+            variant: "glass-purple" as const,
         },
         {
             title: "Tempo Médio Resolução",
             value: metrics?.tempos.tempoMedioResolucao ? `${Math.round(metrics.tempos.tempoMedioResolucao / 60)}min` : "0min",
             icon: Clock,
             trend: { value: 0, isPositive: true },
-            variant: "accent" as const,
+            variant: "glass-cyan" as const,
         },
         {
             title: "Cancelados",
             value: metrics?.totais.cancelados.toString() || "0",
             icon: MessageCircle, // Placeholder icon
             trend: { value: 0, isPositive: false },
-            variant: "primary" as const,
+            variant: "glass-orange" as const,
         },
     ];
 
@@ -102,11 +102,7 @@ export default function ReportsPage() {
                                     value={kpi.value}
                                     icon={kpi.icon}
                                     trend={kpi.trend}
-                                    variant={
-                                        kpi.variant === "primary" ? "glass-blue"
-                                            : kpi.variant === "secondary" ? "glass-purple"
-                                                : "glass-cyan"
-                                    }
+                                    variant={kpi.variant}
                                 />
                             </div>
                         ))}

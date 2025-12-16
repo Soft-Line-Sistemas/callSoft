@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, Fornecedor, FornecedorStats } from "../../../src/lib/api";
 import { ArrowLeft, MapPin, Phone, Mail, Building2, Clock, CheckCircle, XCircle, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { StatCard } from "../../../src/components/ui/StatCard";
+import { StatCard, StatCardProps } from "../../../src/components/ui/StatCard";
 
 export default function SupplierDetailPage({ params }: { params: { id: string } }) {
     const router = useRouter();
@@ -59,7 +59,7 @@ export default function SupplierDetailPage({ params }: { params: { id: string } 
         );
     }
 
-    const kpis = [
+    const kpis: StatCardProps[] = [
         {
             title: "Total Cotações",
             value: stats?.totalCotacoes.toString() || "0",
@@ -86,7 +86,7 @@ export default function SupplierDetailPage({ params }: { params: { id: string } 
             value: stats?.tempoMedioResposta ? `${stats.tempoMedioResposta}h` : "-",
             icon: Clock,
             trend: { value: 0, isPositive: false },
-            variant: "glass-pink" as const,
+            variant: "glass-orange" as const,
         },
     ];
 
