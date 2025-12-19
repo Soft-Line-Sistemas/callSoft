@@ -93,18 +93,18 @@ export default function CriarEmpresaPage() {
       return empresasApi.create({
         nomeFantasia,
         razaoSocial,
-        cnpj: cnpj || null,
-        inscEstadual: inscEstadual || null,
-        im: im || null,
-        cep: cep || null,
-        endereco: endereco || null,
-        bairro: bairro || null,
-        cidade: cidade || null,
-        estado: estado || null,
-        telefone: telefone || null,
-        telefoneSec: telefoneSec || null,
-        cabecalho: cabecalho || null,
-        observacao: observacao || null
+        cnpj: cnpj || undefined,
+        inscEstadual: inscEstadual || undefined,
+        im: im || undefined,
+        cep: cep || undefined,
+        endereco: endereco || undefined,
+        bairro: bairro || undefined,
+        cidade: cidade || undefined,
+        estado: estado || undefined,
+        telefone: telefone || undefined,
+        telefoneSec: telefoneSec || undefined,
+        cabecalho: cabecalho || undefined,
+        observacao: observacao || undefined
       });
     }
   });
