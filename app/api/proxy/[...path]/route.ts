@@ -14,6 +14,12 @@ async function handler(req: NextRequest, context: { params: Promise<{ path: stri
 
   const headers = new Headers(req.headers);
   headers.delete('host');
+  // Remove hop-by-hop headers that Node fetch/undici rejects.
+  headers.delete('connection');
+  headers.delete('keep-alive');
+  headers.delete('proxy-connection');
+  headers.delete('transfer-encoding');
+  headers.delete('upgrade');
 
   const incomingAuth = headers.get('authorization');
   if (!incomingAuth) {
@@ -65,4 +71,3 @@ export async function DELETE(req: NextRequest, context: any) {
 export async function OPTIONS(req: NextRequest, context: any) {
   return handler(req, context);
 }
-
