@@ -9,8 +9,10 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MessageCircle, Plus } from "lucide-react";
+import { ArrowLeft, MessageCircle, Plus, Edit } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
+import { EditTicketModal } from "@/components/modals/EditTicketModal";
+import { TicketChat } from "@/components/features/TicketChat";
 
 type TicketHistoryItem = {
   id: number;
@@ -62,10 +64,19 @@ function statusBadgeVariant(status: TicketStatus) {
   }
 }
 
+const ALLOWED_STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
+  SOLICITADO: ["PENDENTE_ATENDIMENTO"],
+  PENDENTE_ATENDIMENTO: ["EM_ATENDIMENTO"],
+  EM_ATENDIMENTO: ["CONCLUIDO", "CANCELADO"],
+  CONCLUIDO: [],
+  CANCELADO: [],
+};
+
 export default function TicketDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { addNotification } = useNotificationStore();
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const { data: ticket, isLoading, refetch } = useQuery<TicketDetail>({
     queryKey: ["ticket-detail", params.id],
@@ -79,6 +90,9 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     const digits = ticket?.contatoWpp?.replace(/\D/g, "");
     return digits ? `https://wa.me/${digits}` : null;
   }, [ticket?.contatoWpp]);
+
+  const canTransitionTo = (current: TicketStatus, next: TicketStatus) =>
+    (ALLOWED_STATUS_TRANSITIONS[current] ?? []).includes(next);
 
   const transitionStatus = async (status: TicketStatus) => {
     if (!ticket) return;
@@ -101,6 +115,28 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       });
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleSaveTicket = async (data: { empresa?: string; responsavel?: string; prioridade?: string; contatoNome?: string }) => {
+    if (!ticket) return;
+    try {
+      await api.patch(`/api/v1/tickets/${ticket.id}`, data);
+      addNotification({
+        title: "Ticket atualizado",
+        message: "Os dados do ticket foram atualizados com sucesso.",
+        type: "success",
+        category: "system",
+      });
+      await refetch();
+    } catch (error: any) {
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao atualizar ticket.",
+        type: "error",
+        category: "system",
+      });
+      throw error;
     }
   };
 
@@ -135,6 +171,9 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                     </div>
 
                     <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => setIsEditModalOpen(true)} title="Editar ticket">
+                        <Edit className="h-4 w-4" />
+                      </Button>
                       {whatsappUrl && (
                         <Button variant="ghost" size="icon" onClick={() => window.open(whatsappUrl, "_blank")} title="WhatsApp">
                           <MessageCircle className="h-4 w-4 text-green-400" />
@@ -166,25 +205,53 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-2">
-                      <Button variant="outline" disabled={isUpdatingStatus} onClick={() => transitionStatus("PENDENTE_ATENDIMENTO")}>
-                        Pendente
-                      </Button>
-                      <Button variant="outline" disabled={isUpdatingStatus} onClick={() => transitionStatus("EM_ATENDIMENTO")}>
-                        Em atendimento
-                      </Button>
-                      <Button variant="outline" disabled={isUpdatingStatus} onClick={() => transitionStatus("CONCLUIDO")}>
-                        Concluir
-                      </Button>
-                      <Button variant="outline" disabled={isUpdatingStatus} onClick={() => transitionStatus("CANCELADO")}>
-                        Cancelar
-                      </Button>
+                      {([
+                        { value: "PENDENTE_ATENDIMENTO", label: "Pendente" },
+                        { value: "EM_ATENDIMENTO", label: "Em atendimento" },
+                        { value: "CONCLUIDO", label: "Concluir" },
+                        { value: "CANCELADO", label: "Cancelar" },
+                      ] as { value: TicketStatus; label: string }[]).map((option) => {
+                        const isActive = ticket.status === option.value;
+                        const canTransition = canTransitionTo(ticket.status, option.value);
+                        const isDisabled = isUpdatingStatus || isActive || !canTransition;
+                        const shouldGlow = option.value === "EM_ATENDIMENTO" && canTransition;
+                        return (
+                          <Button
+                            key={option.value}
+                            variant={isActive ? "default" : "outline"}
+                            className={[
+                              isActive ? "disabled:opacity-100 cursor-default" : "",
+                              shouldGlow ? "border-sky-400 text-sky-200 shadow-[0_0_12px_rgba(56,189,248,0.6)]" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            disabled={isDisabled}
+                            onClick={() => transitionStatus(option.value)}
+                          >
+                            {option.label}
+                          </Button>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card variant="glass">
                   <CardHeader>
-                    <CardTitle>Histórico</CardTitle>
+                    <CardTitle>Mensagens</CardTitle>
+                  </CardHeader>
+                  <CardContent className="h-[600px]">
+                    <TicketChat
+                      ticketId={ticket.id}
+                      whatsappNumber={ticket.contatoWpp}
+                      canSend={ticket.status === "EM_ATENDIMENTO"}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card variant="glass">
+                  <CardHeader>
+                    <CardTitle>Histórico de Status</CardTitle>
                   </CardHeader>
                   <CardContent>
                     {ticket.historico?.length ? (
@@ -246,6 +313,15 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
           )}
         </div>
       </main>
+
+      {ticket && (
+        <EditTicketModal
+          ticket={ticket}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleSaveTicket}
+        />
+      )}
     </div>
   );
 }

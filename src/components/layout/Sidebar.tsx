@@ -4,12 +4,9 @@ import { usePathname, useRouter } from "next/navigation";
 import {
     Home,
     Ticket,
-    Truck,
-    MessageCircle,
     BarChart3,
     Settings,
     Building2,
-    ListChecks,
     LucideIcon,
     User2Icon,
     LogOut,
@@ -28,7 +25,7 @@ interface NavItem {
 const navItems: NavItem[] = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
     { name: "Tickets", href: "/tickets", icon: Ticket },
-    { name: "Empresa", href: "/suppliers", icon: Truck },
+    { name: "Empresas", href: "/empresas", icon: Building2 },
     // { name: "Contatos WhatsApp", href: "/whatsapp/contatos", icon: ListChecks },
     { name: "Config Chatbot", href: "/whatsapp/config", icon: Settings },
     { name: "Relatórios", href: "/reports", icon: BarChart3 },

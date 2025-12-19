@@ -10,3 +10,4 @@ export * from './whatsapp-config.service';
 export * from './metrics.service';
 export * from './notifications.service';
 export * from './empresas.service';
+export * from './usuarios.service';

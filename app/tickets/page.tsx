@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
 import { Filter, Search, Eye, MessageCircle } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
+import { CreateTicketModal } from "@/components/modals/CreateTicketModal";
 
 const STATUS_OPTIONS: Array<{ value: TicketStatus | ""; label: string }> = [
   { value: "", label: "Todos" },
@@ -42,6 +43,7 @@ export default function TicketsPage() {
   const [text, setText] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const params = useMemo(() => {
     return {
@@ -64,6 +66,14 @@ export default function TicketsPage() {
 
   const tickets: Ticket[] = data?.data.items ?? [];
 
+  const { data: authMe } = useQuery<{ tenantId?: string }>({
+    queryKey: ["auth-me"],
+    queryFn: async () => {
+      const res = await api.get("/api/v1/auth/me");
+      return res.data.data;
+    },
+  });
+
   const handleWhatsApp = (phone: string) => {
     const digits = phone.replace(/\D/g, "");
     if (!digits) return;
@@ -83,15 +93,20 @@ export default function TicketsPage() {
               <p className="mt-2 text-slate-400">Gerencie solicitações recebidas via bot/portal.</p>
             </div>
 
-            <Button
-              variant="outline"
-              onClick={() => {
-                void refetch();
-              }}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Atualizar
-            </Button>
+            <div className="flex flex-row gap-3 items-center">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  void refetch();
+                }}
+                >
+                <Filter className="h-4 w-4 mr-2" />
+                Atualizar
+              </Button>
+              <Button variant="gradient" onClick={() => setIsCreateOpen(true)}>
+                Criar ticket manual
+              </Button>
+            </div>
           </div>
 
           <div className="glass rounded-xl p-5 space-y-4 animate-slide-up">
@@ -135,6 +150,7 @@ export default function TicketsPage() {
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Responsável</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Status</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Prioridade</th>
+                    <th className="text-left p-4 text-sm font-semibold text-slate-300">Solicitação</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Criado</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Ações</th>
                   </tr>
@@ -142,13 +158,13 @@ export default function TicketsPage() {
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                      <td colSpan={8} className="p-8 text-center text-slate-400">
                         Carregando tickets...
                       </td>
                     </tr>
                   ) : tickets.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                      <td colSpan={8} className="p-8 text-center text-slate-400">
                         Nenhum ticket encontrado.
                       </td>
                     </tr>
@@ -167,8 +183,11 @@ export default function TicketsPage() {
                           </Badge>
                         </td>
                         <td className="p-4 text-sm text-slate-300">{ticket.prioridade ?? "--"}</td>
+                        <td className="p-4 text-sm text-slate-300 max-w-xs truncate" title={ticket.solicitacao || ""}>
+                          {ticket.solicitacao ? ticket.solicitacao : "--"}
+                        </td>
                         <td className="p-4 text-sm text-slate-400">
-                          {new Date(ticket.createdAt).toLocaleDateString("pt-BR")}
+                          {new Date(ticket.createdAt).toLocaleString("pt-BR")}
                         </td>
                         <td className="p-4 text-sm">
                           <div className="flex items-center gap-2">
@@ -210,6 +229,44 @@ export default function TicketsPage() {
           </div>
         </div>
       </main>
+
+      <CreateTicketModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onCreate={async (payload) => {
+          try {
+            const res = await api.post("/api/v1/tickets", {
+              ...payload,
+              tenantId: authMe?.tenantId,
+            });
+            const ticketId = res.data?.data?.id;
+
+            if (ticketId) {
+              await api.post(`/api/v1/tickets/${ticketId}/status`, { status: "PENDENTE_ATENDIMENTO" });
+              await api.post(`/api/v1/tickets/${ticketId}/status`, { status: "EM_ATENDIMENTO" });
+              await api.post(`/api/v1/tickets/${ticketId}/messages`, {
+                message: payload.solicitacao,
+                isInternal: false,
+              });
+            }
+            addNotification({
+              title: "Ticket criado",
+              message: "Ticket criado e colocado em atendimento.",
+              type: "success",
+              category: "system",
+            });
+            setIsCreateOpen(false);
+            void refetch();
+          } catch (error: any) {
+            addNotification({
+              title: "Erro",
+              message: error?.response?.data?.message || "Falha ao criar ticket.",
+              type: "error",
+              category: "system",
+            });
+          }
+        }}
+      />
     </div>
   );
 }

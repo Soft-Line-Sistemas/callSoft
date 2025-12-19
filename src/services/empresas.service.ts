@@ -37,7 +37,34 @@ export interface EmpresaResponse {
   ativo: boolean;
 }
 
+export interface EmpresaContactsResponse {
+  empresa: {
+    codEmp: number;
+    nomeFantasia?: string | null;
+    razaoSocial?: string | null;
+  };
+  contatos: Array<{
+    contatoWpp: string;
+    lastTicketId: string;
+    lastStatus: string;
+    lastUpdatedAt: string;
+    ticketCount: number;
+  }>;
+}
+
 export const empresasApi = {
+  list: async (params?: { search?: string }): Promise<EmpresaResponse[]> => {
+    const response = await api.get<ApiResponse<EmpresaResponse[]>>('/api/v1/empresas', {
+      params,
+    });
+    return response.data.data ?? [];
+  },
+  listContacts: async (codEmp: number): Promise<EmpresaContactsResponse> => {
+    const response = await api.get<ApiResponse<EmpresaContactsResponse>>(
+      `/api/v1/empresas/${codEmp}/contatos`,
+    );
+    return response.data.data!;
+  },
   create: async (payload: CreateEmpresaRequest): Promise<EmpresaResponse> => {
     const response = await api.post<ApiResponse<EmpresaResponse>>('/api/v1/empresas', payload);
     return response.data.data!;
