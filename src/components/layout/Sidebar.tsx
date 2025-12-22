@@ -10,6 +10,8 @@ import {
     LucideIcon,
     User2Icon,
     LogOut,
+    KanbanSquare,
+    CalendarDays,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -26,6 +28,8 @@ const navItems: NavItem[] = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
     { name: "Tickets", href: "/tickets", icon: Ticket },
     { name: "Empresas", href: "/empresas", icon: Building2 },
+    { name: "Kanban", href: "/kanban", icon: KanbanSquare },
+    { name: "Agenda", href: "/agenda", icon: CalendarDays },
     // { name: "Contatos WhatsApp", href: "/whatsapp/contatos", icon: ListChecks },
     { name: "Config Chatbot", href: "/whatsapp/config", icon: Settings },
     { name: "Relatórios", href: "/reports", icon: BarChart3 },

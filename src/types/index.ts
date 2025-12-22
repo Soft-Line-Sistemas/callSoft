@@ -39,3 +39,6 @@ export * from './health.types';
 
 // Error Types
 export * from './error.types';
+
+// Kanban Types
+export * from './kanban.types';

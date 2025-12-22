@@ -9,7 +9,8 @@ import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
-import { Filter, Search, Eye, MessageCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Filter, Search, Eye, KanbanSquare, Loader2 } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { CreateTicketModal } from "@/components/modals/CreateTicketModal";
 
@@ -44,6 +45,9 @@ export default function TicketsPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [creatingKanbanFor, setCreatingKanbanFor] = useState<string | null>(null);
+  const [existingKanbanId, setExistingKanbanId] = useState<string | null>(null);
+  const [isRedirectModalOpen, setIsRedirectModalOpen] = useState(false);
 
   const params = useMemo(() => {
     return {
@@ -78,6 +82,61 @@ export default function TicketsPage() {
     const digits = phone.replace(/\D/g, "");
     if (!digits) return;
     window.open(`https://wa.me/${digits}`, "_blank");
+  };
+
+  const handleCreateKanbanTask = async (ticket: Ticket) => {
+    setCreatingKanbanFor(ticket.id);
+    try {
+      const existingRes = await api.get("/api/v1/kanban", {
+        params: {
+          tipo: "SUPORTE",
+          referenciaId: ticket.id,
+        },
+      });
+      const existing = existingRes.data?.data?.[0];
+      if (existing) {
+        setExistingKanbanId(existing.id);
+        setIsRedirectModalOpen(true);
+        return;
+      }
+
+      const kanbanRes = await api.post("/api/v1/kanban", {
+        titulo: `Suporte #${ticket.pedido}`,
+        descricao: ticket.solicitacao ?? null,
+        tipo: "SUPORTE",
+        referenciaId: ticket.id,
+      });
+      const kanban = kanbanRes.data?.data;
+      const colunas = (kanban?.colunas ?? []).slice().sort((a: any, b: any) => a.indice - b.indice);
+      const colunaId = colunas[0]?.id;
+      if (!kanban?.id || !colunaId) {
+        throw new Error("Kanban sem colunas");
+      }
+
+      await api.post(`/api/v1/kanban/${kanban.id}/task`, {
+        colunaId,
+        titulo: `Atendimento #${ticket.pedido}`,
+        descricao: ticket.solicitacao ?? null,
+        dataInicio: new Date().toISOString(),
+      });
+
+      addNotification({
+        title: "Tarefa criada",
+        message: "Tarefa criada no Kanban de suporte.",
+        type: "success",
+        category: "system",
+      });
+    } catch (error: any) {
+      console.error("Erro ao criar tarefa no Kanban", error);
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao criar tarefa no Kanban.",
+        type: "error",
+        category: "system",
+      });
+    } finally {
+      setCreatingKanbanFor(null);
+    }
   };
 
   return (
@@ -197,26 +256,20 @@ export default function TicketsPage() {
                               onClick={() => router.push(`/tickets/${ticket.id}`)}
                               title="Detalhes"
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-5 w-5" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => {
-                                if (!ticket.contatoWpp) {
-                                  addNotification({
-                                    title: "Sem contato",
-                                    message: "Ticket não possui WhatsApp informado.",
-                                    type: "info",
-                                    category: "system",
-                                  });
-                                  return;
-                                }
-                                handleWhatsApp(ticket.contatoWpp);
-                              }}
-                              title="WhatsApp"
+                              onClick={() => handleCreateKanbanTask(ticket)}
+                              title="Criar tarefa no Kanban (Suporte)"
+                              disabled={creatingKanbanFor === ticket.id}
                             >
-                              <MessageCircle className="h-4 w-4 text-green-400" />
+                              {creatingKanbanFor === ticket.id ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <KanbanSquare className="h-5 w-5 text-indigo-300" />
+                              )}
                             </Button>
                           </div>
                         </td>
@@ -267,6 +320,32 @@ export default function TicketsPage() {
           }
         }}
       />
+
+      <Dialog open={isRedirectModalOpen} onOpenChange={setIsRedirectModalOpen}>
+        <DialogContent className="bg-slate-900 text-slate-100 max-w-md">
+          <DialogHeader>
+            <DialogTitle>Kanban ja criado</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-300">
+            Este ticket ja possui um Kanban de suporte. Deseja abrir agora?
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsRedirectModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (existingKanbanId) {
+                  router.push(`/kanban/${existingKanbanId}`);
+                }
+                setIsRedirectModalOpen(false);
+              }}
+            >
+              Abrir Kanban
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
