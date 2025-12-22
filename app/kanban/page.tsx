@@ -1,13 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Layout, MessageCircle, Megaphone, LifeBuoy, Calendar } from "lucide-react";
+import {
+  Plus,
+  Layout,
+  MessageCircle,
+  Megaphone,
+  LifeBuoy,
+  Calendar,
+  Pin,
+  List,
+  LayoutGrid,
+  Pencil,
+} from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { KanbanListItem, KanbanTipo } from "@/types";
 
@@ -45,6 +57,8 @@ const tipoConfig: Record<KanbanTipo, { label: string; icon: React.ReactNode; bg:
 };
 
 const tipos = Object.keys(tipoConfig) as KanbanTipo[];
+const VIEW_MODE_KEY = "kanban:viewMode";
+const PAGE_SIZE = 12;
 
 export default function KanbanListPage() {
   const [kanbans, setKanbans] = useState<KanbanListItem[]>([]);
@@ -52,6 +66,13 @@ export default function KanbanListPage() {
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newTipo, setNewTipo] = useState<KanbanTipo>("CHAMADO");
+  const [search, setSearch] = useState("");
+  const [filterTipo, setFilterTipo] = useState<KanbanTipo | "">("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [page, setPage] = useState(1);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingKanban, setEditingKanban] = useState<KanbanListItem | null>(null);
+  const [editTitle, setEditTitle] = useState("");
 
   useEffect(() => {
     const fetchKanbans = async () => {
@@ -67,6 +88,17 @@ export default function KanbanListPage() {
     };
     void fetchKanbans();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedView = window.localStorage.getItem(VIEW_MODE_KEY);
+    if (savedView === "list" || savedView === "grid") setViewMode(savedView);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
 
   const handleCreateKanban = async () => {
     if (!newTitle.trim()) return;
@@ -93,6 +125,61 @@ export default function KanbanListPage() {
     }
   };
 
+  const togglePinned = async (kanban: KanbanListItem) => {
+    const nextPinned = !kanban.pinned;
+    setKanbans((prev) =>
+      prev.map((item) => (item.id === kanban.id ? { ...item, pinned: nextPinned } : item)),
+    );
+    try {
+      await api.patch(`/api/v1/kanban/${kanban.id}`, { pinned: nextPinned });
+    } catch (err) {
+      console.error("Erro ao fixar kanban", err);
+      setKanbans((prev) =>
+        prev.map((item) => (item.id === kanban.id ? { ...item, pinned: kanban.pinned } : item)),
+      );
+    }
+  };
+
+  const openEditModal = (kanban: KanbanListItem) => {
+    setEditingKanban(kanban);
+    setEditTitle(kanban.titulo);
+    setIsEditOpen(true);
+  };
+
+  const saveKanbanTitle = async () => {
+    if (!editingKanban) return;
+    const title = editTitle.trim();
+    if (!title) return;
+    try {
+      const res = await api.patch(`/api/v1/kanban/${editingKanban.id}`, { titulo: title });
+      const updated = res.data?.data;
+      setKanbans((prev) =>
+        prev.map((item) => (item.id === editingKanban.id ? { ...item, titulo: updated.titulo } : item)),
+      );
+      setIsEditOpen(false);
+      setEditingKanban(null);
+    } catch (err) {
+      console.error("Erro ao renomear kanban", err);
+    }
+  };
+
+  const filteredKanbans = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const base = kanbans.filter((k) => (filterTipo ? k.tipo === filterTipo : true));
+    const searched = query
+      ? base.filter((k) =>
+          [k.titulo, k.descricao ?? ""].some((value) => value.toLowerCase().includes(query)),
+        )
+      : base;
+
+    const pinned = searched.filter((k) => k.pinned);
+    const rest = searched.filter((k) => !k.pinned);
+    return [...pinned, ...rest];
+  }, [kanbans, filterTipo, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredKanbans.length / PAGE_SIZE));
+  const pagedKanbans = filteredKanbans.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="min-h-screen">
       <Sidebar />
@@ -108,29 +195,77 @@ export default function KanbanListPage() {
           </div>
 
           <Card className="animate-slide-up" variant="glass">
-            <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
-              <div className="flex-1">
-                <Input
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Nome do novo Kanban..."
-                />
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
+                <div className="flex-1">
+                  <Input
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Nome do novo Kanban..."
+                  />
+                </div>
+                <select
+                  value={newTipo}
+                  onChange={(e) => setNewTipo(e.target.value as KanbanTipo)}
+                  className="w-full lg:w-56 rounded-lg bg-slate-dark border border-slate-700 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-purple-500"
+                >
+                  {tipos.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipoConfig[tipo].label}
+                    </option>
+                  ))}
+                </select>
+                <Button variant="gradient" onClick={handleCreateKanban} isLoading={creating}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Criar Kanban
+                </Button>
               </div>
-              <select
-                value={newTipo}
-                onChange={(e) => setNewTipo(e.target.value as KanbanTipo)}
-                className="w-full lg:w-56 rounded-lg bg-slate-dark border border-slate-700 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-purple-500"
-              >
-                {tipos.map((tipo) => (
-                  <option key={tipo} value={tipo}>
-                    {tipoConfig[tipo].label}
-                  </option>
-                ))}
-              </select>
-              <Button variant="gradient" onClick={handleCreateKanban} isLoading={creating}>
-                <Plus className="mr-2 h-4 w-4" />
-                Criar Kanban
-              </Button>
+
+              <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
+                <div className="flex-1">
+                  <Input
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                    placeholder="Pesquisar Kanban..."
+                  />
+                </div>
+                <select
+                  value={filterTipo}
+                  onChange={(e) => {
+                    setFilterTipo(e.target.value as KanbanTipo | "");
+                    setPage(1);
+                  }}
+                  className="w-full lg:w-56 rounded-lg bg-slate-dark border border-slate-700 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-purple-500"
+                >
+                  <option value="">Todos os tipos</option>
+                  {tipos.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipoConfig[tipo].label}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <Button
+                    variant={viewMode === "grid" ? "gradient" : "outline"}
+                    size="icon"
+                    onClick={() => setViewMode("grid")}
+                    title="Visualizacao em grade"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === "list" ? "gradient" : "outline"}
+                    size="icon"
+                    onClick={() => setViewMode("list")}
+                    title="Visualizacao em lista"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </Card>
 
@@ -139,26 +274,76 @@ export default function KanbanListPage() {
             <div className="text-center py-12 text-slate-400">Nenhum Kanban encontrado.</div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            {kanbans.map((kanban) => {
+          <div
+            className={
+              viewMode === "grid"
+                ? "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+                : "flex flex-col gap-4"
+            }
+          >
+            {pagedKanbans.map((kanban) => {
               const config = tipoConfig[kanban.tipo];
               return (
-                <Link key={kanban.id} href={`/kanban/${kanban.id}`}>
-                  <Card variant="glass" hoverable className="h-full">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${config.bg} text-white shadow-lg`}>
-                        {config.icon}
+                <Card key={kanban.id} variant="glass" hoverable className="h-full">
+                  <div className="flex items-start justify-between gap-3">
+                    <Link href={`/kanban/${kanban.id}`} className="flex-1">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${config.bg} text-white shadow-lg`}>
+                          {config.icon}
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-slate-400">{config.label}</p>
+                          <h2 className="text-lg font-semibold text-white">{kanban.titulo}</h2>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-slate-400">{config.label}</p>
-                        <h2 className="text-lg font-semibold text-white">{kanban.titulo}</h2>
-                      </div>
+                      {kanban.descricao && <p className="text-sm text-slate-300 line-clamp-3">{kanban.descricao}</p>}
+                    </Link>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        className={`rounded-full p-2 border border-white/10 hover:border-purple-400/50 ${
+                          kanban.pinned ? "bg-purple-500/20 text-purple-200" : "text-slate-300"
+                        }`}
+                        onClick={() => togglePinned(kanban)}
+                        title={kanban.pinned ? "Desafixar" : "Fixar"}
+                      >
+                        <Pin className="h-4 w-4" />
+                      </button>
+                      <button
+                        className="rounded-full p-2 border border-white/10 text-slate-300 hover:border-purple-400/50"
+                        onClick={() => openEditModal(kanban)}
+                        title="Renomear"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
                     </div>
-                    {kanban.descricao && <p className="text-sm text-slate-300 line-clamp-3">{kanban.descricao}</p>}
-                  </Card>
-                </Link>
+                  </div>
+                </Card>
               );
             })}
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span>
+              Pagina {page} de {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+              >
+                Proxima
+              </Button>
+            </div>
           </div>
 
           <Card variant="glass" className="animate-slide-up">
@@ -182,6 +367,27 @@ export default function KanbanListPage() {
           </Card>
         </div>
       </main>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="bg-slate-900 text-slate-100 max-w-md">
+          <DialogHeader>
+            <DialogTitle>Renomear Kanban</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="Novo nome do Kanban"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={saveKanbanTitle}>Salvar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

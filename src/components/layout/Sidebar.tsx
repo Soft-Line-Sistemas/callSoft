@@ -57,7 +57,7 @@ export function Sidebar() {
         queryKey: ['auth-me'],
         queryFn: async () => {
             const res = await api.get('/api/v1/auth/me');
-            return res.data;
+            return res.data?.data;
         },
         retry: false
     });
@@ -65,8 +65,13 @@ export function Sidebar() {
     return (
         <aside className="fixed left-0 top-0 z-40 h-screen w-64 glass border-r border-white/10">
             {/* Logo */}
-            <div className="flex h-16 items-center justify-center border-b border-white/10">
+            <div className="flex h-16 flex-col items-center justify-center gap-1 border-b border-white/10">
                 <h1 className="text-2xl font-bold gradient-text">CALLSOFT</h1>
+                {userProfile?.tenantName && (
+                    <span className="text-xs uppercase tracking-wide text-slate-400">
+                        {userProfile.tenantName}
+                    </span>
+                )}
             </div>
 
             {/* Navigation */}
@@ -98,11 +103,11 @@ export function Sidebar() {
                 <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 rounded-xl p-3 shadow-lg group hover:bg-slate-800/60 transition-all duration-300">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg shadow-purple-500/20">
-                            {userProfile?.name?.charAt(0).toUpperCase() || "U"}
+                            {userProfile?.email?.charAt(0).toUpperCase() || "U"}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-white truncate">
-                            {userProfile?.name || "Usuário"}
+                            {userProfile?.email || "Usuário"}
                             </p>
                             <div className="flex items-center gap-1.5">
                                 <span className={`h-1.5 w-1.5 rounded-full ${userProfile?.isActive ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]' : 'bg-slate-500'}`} />

@@ -6,6 +6,7 @@ export interface KanbanListItem {
   descricao?: string | null;
   tipo: KanbanTipo;
   referenciaId?: string | null;
+  pinned?: boolean;
 }
 
 export interface KanbanColuna {
