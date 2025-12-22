@@ -186,7 +186,7 @@ export default function AgendaKanbanPage() {
             </Button>
           </div>
 
-          <div className="rounded-xl bg-white/95 p-4 text-slate-900 shadow-xl">
+          <div className="rounded-xl glass p-4 text-slate-100 shadow-xl rbc-theme-dark">
             {loading && <div className="py-10 text-center text-slate-600">Carregando tarefas...</div>}
             {!loading && (
               <DnDCalendar
@@ -214,6 +214,46 @@ export default function AgendaKanbanPage() {
           </div>
         </div>
       </main>
+      <style jsx global>{`
+        .rbc-theme-dark .rbc-calendar {
+          color: #e2e8f0;
+        }
+        .rbc-theme-dark .rbc-toolbar button {
+          color: #e2e8f0;
+          border-color: rgba(255, 255, 255, 0.12);
+        }
+        .rbc-theme-dark .rbc-toolbar button.rbc-active {
+          background: rgba(124, 58, 237, 0.25);
+          border-color: rgba(124, 58, 237, 0.6);
+          color: #fff;
+        }
+        .rbc-theme-dark .rbc-off-range-bg {
+          background: rgba(15, 23, 42, 0.6);
+        }
+        .rbc-theme-dark .rbc-today {
+          background: rgba(124, 58, 237, 0.12);
+        }
+        .rbc-theme-dark .rbc-month-view,
+        .rbc-theme-dark .rbc-time-view,
+        .rbc-theme-dark .rbc-agenda-view {
+          background: transparent;
+          border-color: rgba(255, 255, 255, 0.08);
+        }
+        .rbc-theme-dark .rbc-header,
+        .rbc-theme-dark .rbc-time-header-content,
+        .rbc-theme-dark .rbc-time-content,
+        .rbc-theme-dark .rbc-timeslot-group,
+        .rbc-theme-dark .rbc-time-gutter {
+          border-color: rgba(255, 255, 255, 0.08);
+        }
+        .rbc-theme-dark .rbc-event,
+        .rbc-theme-dark .rbc-day-slot .rbc-event {
+          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        .rbc-theme-dark .rbc-time-slot {
+          border-color: rgba(255, 255, 255, 0.04);
+        }
+      `}</style>
     </div>
   );
 }

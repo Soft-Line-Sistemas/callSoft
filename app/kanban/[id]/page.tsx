@@ -305,6 +305,13 @@ export default function KanbanPage() {
     }
   };
 
+  const getTaskProgress = (tarefa: KanbanTarefa) => {
+    const total = tarefa.subtarefas?.length ?? 0;
+    if (total === 0) return null;
+    const done = tarefa.subtarefas?.filter((s) => s.concluido).length ?? 0;
+    return Math.round((done / total) * 100);
+  };
+
   const persistDraft = async () => {
     if (!openTask || !taskDraft) return;
     const patch: Partial<KanbanTarefa> = {};
@@ -479,6 +486,21 @@ export default function KanbanPage() {
                                             )}
                                           </div>
                                         </div>
+                                        {getTaskProgress(t) !== null && (
+                                          <div className="ml-2 flex items-center">
+                                            <div
+                                              className="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-semibold text-slate-100"
+                                              style={{
+                                                background: `conic-gradient(#8b5cf6 ${getTaskProgress(t)}%, rgba(255,255,255,0.12) 0)`,
+                                              }}
+                                              title={`Subtarefas: ${getTaskProgress(t)}%`}
+                                            >
+                                              <span className="h-6 w-6 rounded-full bg-slate-900/90 flex items-center justify-center">
+                                                {getTaskProgress(t)}%
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   )}
@@ -664,27 +686,77 @@ export default function KanbanPage() {
                   </label>
                   <SubtaskEditor
                     subtarefas={openTask.subtarefas ?? []}
-                    onAdd={(conteudo) => {
-                      const nova: KanbanSubtarefa = {
-                        id: `s-${Math.random().toString(36).slice(2, 8)}`,
-                        conteudo,
-                        concluido: false,
-                      };
-                      const updatedTask = {
-                        ...openTask,
-                        subtarefas: [...(openTask.subtarefas ?? []), nova],
-                      };
-                      setOpenTask(updatedTask);
-                      setKanban((prev) => {
-                        if (!prev) return prev;
-                        return {
-                          ...prev,
-                          colunas: prev.colunas.map((c) => ({
-                            ...c,
-                            tarefas: c.tarefas.map((t) => (t.id === openTask.id ? updatedTask : t)),
-                          })),
+                    onAdd={async (conteudo) => {
+                      try {
+                        const res = await api.post(`/api/v1/task/${openTask.id}/subtasks`, { conteudo });
+                        const nova = res.data?.data as KanbanSubtarefa;
+                        const updatedTask = {
+                          ...openTask,
+                          subtarefas: [...(openTask.subtarefas ?? []), nova],
                         };
-                      });
+                        setOpenTask(updatedTask);
+                        setKanban((prev) => {
+                          if (!prev) return prev;
+                          return {
+                            ...prev,
+                            colunas: prev.colunas.map((c) => ({
+                              ...c,
+                              tarefas: c.tarefas.map((t) => (t.id === openTask.id ? updatedTask : t)),
+                            })),
+                          };
+                        });
+                      } catch (err) {
+                        console.error("Erro ao criar subtarefa", err);
+                      }
+                    }}
+                    onToggle={async (subtaskId, concluido) => {
+                      try {
+                        const res = await api.patch(`/api/v1/task/${openTask.id}/subtasks/${subtaskId}`, {
+                          concluido,
+                        });
+                        const updated = res.data?.data as KanbanSubtarefa;
+                        const updatedTask = {
+                          ...openTask,
+                          subtarefas: (openTask.subtarefas ?? []).map((s) =>
+                            s.id === updated.id ? updated : s
+                          ),
+                        };
+                        setOpenTask(updatedTask);
+                        setKanban((prev) => {
+                          if (!prev) return prev;
+                          return {
+                            ...prev,
+                            colunas: prev.colunas.map((c) => ({
+                              ...c,
+                              tarefas: c.tarefas.map((t) => (t.id === openTask.id ? updatedTask : t)),
+                            })),
+                          };
+                        });
+                      } catch (err) {
+                        console.error("Erro ao atualizar subtarefa", err);
+                      }
+                    }}
+                    onRemove={async (subtaskId) => {
+                      try {
+                        await api.delete(`/api/v1/task/${openTask.id}/subtasks/${subtaskId}`);
+                        const updatedTask = {
+                          ...openTask,
+                          subtarefas: (openTask.subtarefas ?? []).filter((s) => s.id !== subtaskId),
+                        };
+                        setOpenTask(updatedTask);
+                        setKanban((prev) => {
+                          if (!prev) return prev;
+                          return {
+                            ...prev,
+                            colunas: prev.colunas.map((c) => ({
+                              ...c,
+                              tarefas: c.tarefas.map((t) => (t.id === openTask.id ? updatedTask : t)),
+                            })),
+                          };
+                        });
+                      } catch (err) {
+                        console.error("Erro ao remover subtarefa", err);
+                      }
                     }}
                   />
                 </div>
@@ -916,9 +988,13 @@ function CreateInline({ onCancel, onCreate }: { onCancel: () => void; onCreate: 
 function SubtaskEditor({
   subtarefas,
   onAdd,
+  onToggle,
+  onRemove,
 }: {
   subtarefas: KanbanSubtarefa[];
   onAdd: (conteudo: string) => void;
+  onToggle: (id: string, concluido: boolean) => void;
+  onRemove: (id: string) => void;
 }) {
   const [newText, setNewText] = useState("");
   return (
@@ -926,8 +1002,20 @@ function SubtaskEditor({
       <ul className="space-y-2 mb-3">
         {subtarefas.map((s) => (
           <li key={s.id} className="flex items-center gap-2 text-sm text-slate-200">
-            <input type="checkbox" checked={Boolean(s.concluido)} onChange={() => {}} className="w-4 h-4" />
+            <input
+              type="checkbox"
+              checked={Boolean(s.concluido)}
+              onChange={(e) => onToggle(s.id, e.target.checked)}
+              className="w-4 h-4"
+            />
             <span className={s.concluido ? "line-through text-slate-500" : ""}>{s.conteudo}</span>
+            <button
+              className="ml-auto text-slate-500 hover:text-red-400"
+              onClick={() => onRemove(s.id)}
+              aria-label="Remover subtarefa"
+            >
+              <X size={12} />
+            </button>
           </li>
         ))}
       </ul>
