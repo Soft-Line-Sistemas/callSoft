@@ -31,6 +31,7 @@ export default function LoginPage() {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isFirstLoginLoading, setIsFirstLoginLoading] = useState(false);
+    const [firstLoginError, setFirstLoginError] = useState<string | null>(null);
 
     useEffect(() => {
         const storedEmail = localStorage.getItem("firstLoginEmail");
@@ -61,6 +62,7 @@ export default function LoginPage() {
                 if (isSoftline && errorCode === "AUTH_026") {
                     localStorage.setItem("firstLoginEmail", email);
                     setFirstLoginEmail(email);
+                    setFirstLoginError(null);
                     setIsFirstLoginOpen(true);
                     return;
                 }
@@ -99,16 +101,12 @@ export default function LoginPage() {
     const handleFirstLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newPassword !== confirmPassword) {
-            addNotification({
-                title: "Senhas diferentes",
-                message: "A nova senha e a confirmação devem ser iguais.",
-                type: "error",
-                category: "security"
-            });
+            setFirstLoginError("A nova senha e a confirmação devem ser iguais.");
             return;
         }
 
         setIsFirstLoginLoading(true);
+        setFirstLoginError(null);
         try {
             const data = await authApi.firstLogin({
                 login: legacyLogin,
@@ -131,12 +129,9 @@ export default function LoginPage() {
             setIsFirstLoginOpen(false);
             router.push("/dashboard");
         } catch (error: any) {
-            addNotification({
-                title: "Erro no primeiro acesso",
-                message: error.response?.data?.message || "Falha ao concluir o primeiro acesso.",
-                type: "error",
-                category: "security"
-            });
+            setFirstLoginError(
+                error.response?.data?.error?.message || "Falha ao concluir o primeiro acesso."
+            );
         } finally {
             setIsFirstLoginLoading(false);
         }
@@ -356,8 +351,8 @@ export default function LoginPage() {
                     <DialogHeader>
                         <DialogTitle>Primeiro acesso</DialogTitle>
                     </DialogHeader>
-                    <p className="text-slate-400 mb-4 text-sm">
-                        Use o usuario e senha do sistema legado para criar sua nova senha.
+                        <p className="text-slate-400 mb-4 text-sm">
+                        Use o usuario e senha do sistema Enterprise para criar sua nova senha.
                     </p>
                     <form onSubmit={handleFirstLogin} className="space-y-4">
                         <div>
@@ -373,7 +368,7 @@ export default function LoginPage() {
                             <label className="block text-sm font-medium text-slate-300 mb-2">Usuario</label>
                             <Input
                                 type="text"
-                                placeholder="Usuario do legado"
+                                placeholder="Usuario do Enterprise"
                                 value={legacyLogin}
                                 onChange={(e) => setLegacyLogin(e.target.value)}
                                 required
@@ -383,7 +378,7 @@ export default function LoginPage() {
                             <label className="block text-sm font-medium text-slate-300 mb-2">Senha</label>
                             <Input
                                 type="password"
-                                placeholder="Senha do legado"
+                                placeholder="Senha do Enterprise"
                                 value={legacySenha}
                                 onChange={(e) => setLegacySenha(e.target.value)}
                                 required
@@ -413,6 +408,9 @@ export default function LoginPage() {
                             <Button type="button" variant="outline" onClick={() => setIsFirstLoginOpen(false)}>Cancelar</Button>
                             <Button type="submit" variant="gradient" isLoading={isFirstLoginLoading}>Criar acesso</Button>
                         </div>
+                        {firstLoginError && (
+                            <p className="text-sm text-red-400">{firstLoginError}</p>
+                        )}
                     </form>
                 </DialogContent>
             </Dialog>
