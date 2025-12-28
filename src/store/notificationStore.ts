@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { notificationsApi } from '@/services/notifications.service';
+import { getAuthToken } from '@/lib/auth';
 import type {
   NotificationCategory,
   NotificationType,
@@ -66,6 +67,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   initialize: async () => {
     const { hasLoaded, isLoading } = get();
     if (hasLoaded || isLoading) return;
+    if (!getAuthToken()) {
+      set({ hasLoaded: true });
+      return;
+    }
     set({ isLoading: true });
     try {
       await Promise.all([get().loadPreferences(), get().loadNotifications()]);
@@ -75,6 +80,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
   loadNotifications: async () => {
+    if (!getAuthToken()) {
+      return;
+    }
     try {
       const data = await notificationsApi.list({ page: 1, pageSize: 50 });
       set({
@@ -86,6 +94,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
   loadPreferences: async () => {
+    if (!getAuthToken()) {
+      return;
+    }
     try {
       const preferences = await notificationsApi.getPreferences();
       set({ preferences });
@@ -99,15 +110,31 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       return;
     }
     try {
-      const created = await notificationsApi.create({
-        category: data.category,
-        type: data.type,
-        title: data.title,
-        message: data.message,
-      });
+      if (getAuthToken()) {
+        const created = await notificationsApi.create({
+          category: data.category,
+          type: data.type,
+          title: data.title,
+          message: data.message,
+        });
+        set((state) => ({
+          notifications: [
+            { ...mapNotification(created), showToast: true },
+            ...state.notifications,
+          ],
+          unreadCount: state.unreadCount + 1,
+        }));
+        return;
+      }
       set((state) => ({
         notifications: [
-          { ...mapNotification(created), showToast: true },
+          {
+            id: Math.random().toString(36).substring(7),
+            ...data,
+            read: false,
+            timestamp: new Date(),
+            showToast: true,
+          },
           ...state.notifications,
         ],
         unreadCount: state.unreadCount + 1,
@@ -131,7 +158,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
   markAsRead: async (id) => {
     try {
-      await notificationsApi.markAsRead(id);
+      if (getAuthToken()) {
+        await notificationsApi.markAsRead(id);
+      }
     } catch (error) {
       console.error('Failed to mark notification as read', error);
     }
@@ -147,7 +176,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
   markAllAsRead: async () => {
     try {
-      await notificationsApi.markAllAsRead();
+      if (getAuthToken()) {
+        await notificationsApi.markAllAsRead();
+      }
     } catch (error) {
       console.error('Failed to mark all notifications as read', error);
     }
@@ -158,7 +189,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
   removeNotification: async (id) => {
     try {
-      await notificationsApi.remove(id);
+      if (getAuthToken()) {
+        await notificationsApi.remove(id);
+      }
     } catch (error) {
       console.error('Failed to remove notification', error);
     }
@@ -178,7 +211,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     })),
   clearAll: async () => {
     try {
-      await notificationsApi.clear();
+      if (getAuthToken()) {
+        await notificationsApi.clear();
+      }
     } catch (error) {
       console.error('Failed to clear notifications', error);
     }
@@ -188,8 +223,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const { preferences } = get();
     const next = !preferences[category];
     try {
-      const updated = await notificationsApi.setPreference(category, next);
-      set({ preferences: updated });
+      if (getAuthToken()) {
+        const updated = await notificationsApi.setPreference(category, next);
+        set({ preferences: updated });
+      }
     } catch (error) {
       console.error('Failed to update notification preference', error);
     }
