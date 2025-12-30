@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/Badge";
 import { useNotificationStore } from "@/store/notificationStore";
+import { resolveUserPhotoUrl } from "@/lib/media";
 
 export default function UsuariosPage() {
   const { addNotification } = useNotificationStore();
@@ -63,6 +64,17 @@ export default function UsuariosPage() {
     });
 
     return res.data.data.caminho; // ex: /uploads/users/tenant/10.jpg
+  }
+
+  async function uploadFotoParaUsuario(codUsu: number, file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await api.post(`/api/v1/usuarios/${codUsu}/foto`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return res.data.data.caminho;
   }
 
   /* =========================
@@ -134,9 +146,7 @@ export default function UsuariosPage() {
       // Se houver foto, fazer upload e associar (se a API permitir update logo em seguida)
       if (foto && res.data.success && res.data.data.codUsu) {
           try {
-             const caminhoWeb = await uploadFoto(foto);
-             // Aqui precisaria de um endpoint para atualizar o usuário com a foto
-             await api.put(`/api/v1/usuarios/${res.data.data.codUsu}`, { caminhoWeb });
+             await uploadFotoParaUsuario(res.data.data.codUsu, foto);
           } catch (e) {
              console.error("Erro ao fazer upload da foto após registro", e);
           }
@@ -184,7 +194,7 @@ export default function UsuariosPage() {
       let caminhoWeb = usuarioEdit.caminhoWeb;
 
       if (novaFoto) {
-        caminhoWeb = await uploadFoto(novaFoto);
+        caminhoWeb = await uploadFotoParaUsuario(usuarioEdit.codUsu, novaFoto);
       }
 
       return api.put(`/api/v1/usuarios/${usuarioEdit.codUsu}`, {
@@ -525,7 +535,7 @@ export default function UsuariosPage() {
                           <div className="flex items-center gap-4">
                             {u.caminhoWeb ? (
                               <img
-                                src={u.caminhoWeb}
+                                src={resolveUserPhotoUrl(u.caminhoWeb) || undefined}
                                 className="w-10 h-10 rounded-full object-cover border border-slate-600"
                               />
                             ) : (
@@ -575,7 +585,7 @@ export default function UsuariosPage() {
             <div className="flex items-center gap-4 justify-center mb-6">
                  {usuarioEdit?.caminhoWeb && !novaFoto && (
                     <img
-                      src={usuarioEdit.caminhoWeb}
+                      src={resolveUserPhotoUrl(usuarioEdit.caminhoWeb) || undefined}
                       className="w-24 h-24 rounded-full object-cover border-2 border-slate-600"
                     />
                   )}

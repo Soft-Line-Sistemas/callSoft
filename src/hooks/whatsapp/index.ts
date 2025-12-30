@@ -4,3 +4,4 @@ export * from './useRefreshWhatsAppSession';
 export * from './useSendWhatsAppMessage';
 export * from './useWhatsAppMessages';
 export * from './useWhatsAppMessage';
+export * from './useDisconnectWhatsApp';

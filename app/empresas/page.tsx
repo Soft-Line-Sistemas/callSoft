@@ -3,21 +3,71 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
-import { Search, Filter, Download, Plus, MapPin, Phone, Mail } from "lucide-react";
+import { Search, Filter, Download, Plus, MapPin, Phone, Mail, FileText, FileSpreadsheet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { empresasApi, type EmpresaResponse } from "@/services/empresas.service";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/Badge";
+import { exportEmpresasToCSV, exportEmpresasToPDF } from "@/lib/exportEmpresas";
+import { useAuth } from "@/hooks/auth";
 
 export default function EmpresasPage() {
     const router = useRouter();
     const [searchText, setSearchText] = useState("");
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+    const { data: authUser } = useAuth();
 
     const { data: empresas = [], isLoading } = useQuery<EmpresaResponse[]>({
         queryKey: ["empresas", searchText],
         queryFn: () => empresasApi.list({ search: searchText || undefined }),
     });
+
+    const tenantLabel = authUser?.tenantId ?? "CALLSOFT";
+
+    function capitalizeFirstLetter(text: string) {
+        if (!text) return text;
+        return text.toUpperCase();
+    }
+
+    const tenantName = capitalizeFirstLetter(tenantLabel);
+
+    // Close export menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setIsExportMenuOpen(false);
+            }
+        };
+
+        if (isExportMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isExportMenuOpen]);
+
+    const handleExport = (format: 'pdf' | 'csv') => {
+        setIsExporting(true);
+        setIsExportMenuOpen(false);
+
+        try {
+            if (format === 'pdf') {
+                exportEmpresasToPDF(empresas, tenantName);
+            } else {
+                exportEmpresasToCSV(empresas, tenantName);
+            }
+        } catch (error) {
+            console.error('Error exporting:', error);
+            alert('Erro ao exportar. Por favor, tente novamente.');
+        } finally {
+            setTimeout(() => setIsExporting(false), 500);
+        }
+    };
 
     return (
         <div className="min-h-screen">
@@ -57,10 +107,45 @@ export default function EmpresasPage() {
                                 <Filter className="h-4 w-4 mr-2" />
                                 Filtros
                             </Button>
-                            <Button variant="outline">
-                                <Download className="h-4 w-4 mr-2" />
-                                Exportar
-                            </Button>
+                            <div className="relative" ref={exportMenuRef}>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                                    disabled={isExporting}
+                                >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    {isExporting ? 'Exportando...' : 'Exportar'}
+                                </Button>
+
+                                {isExportMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                                        <div className="py-1">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleExport('pdf');
+                                                }}
+                                                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700/50 flex items-center gap-2 transition-colors"
+                                            >
+                                                <FileText className="w-4 h-4" />
+                                                Exportar como PDF
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleExport('csv');
+                                                }}
+                                                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700/50 flex items-center gap-2 transition-colors"
+                                            >
+                                                <FileSpreadsheet className="w-4 h-4" />
+                                                Exportar como CSV
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 

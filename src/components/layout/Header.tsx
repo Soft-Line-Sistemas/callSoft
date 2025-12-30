@@ -1,18 +1,30 @@
 "use client";
-import { Search, Bell, User } from "lucide-react";
-import { Input } from "../ui/Input";
+import { Bell } from "lucide-react";
 import { Button } from "../ui/button";
 import { useNotificationStore } from "../../store/notificationStore";
 import { NotificationDropdown } from "./NotificationDropdown";
-import { ToastContainer } from "../ui/ToastContainer";
 import { useEffect, useState } from "react";
 import { UserDropdown } from "./UserDropdown";
+import { SearchDropdown } from "./SearchDropdown";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../lib/api";
+import { resolveUserPhotoUrl } from "../../lib/media";
 
 export function Header() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const { unreadCount, initialize } = useNotificationStore();
 
    const [isDropdownOpenUser, setIsDropdownOpenUser] = useState(false);
+
+    const { data: user } = useQuery({
+        queryKey: ['auth-me'],
+        queryFn: async () => {
+            const res = await api.get('/api/v1/auth/me');
+            return res.data?.data;
+        },
+        retry: false
+    });
+    const photoUrl = resolveUserPhotoUrl(user?.profilePhotoUrl);
 
     useEffect(() => {
         void initialize();
@@ -23,14 +35,7 @@ export function Header() {
         <header className="fixed left-64 right-0 top-0 z-30 h-16 glass border-b border-white/10">
             <div className="flex h-full items-center justify-between px-6">
                 {/* Search Bar */}
-                <div className="flex-1 max-w-xl">
-                    <Input
-                        type="search"
-                        placeholder="Buscar tickets, clientes, pedidos..."
-                        leftIcon={<Search className="h-4 w-4" />}
-                        className="w-full"
-                    />
-                </div>
+                <SearchDropdown />
 
                 {/* Actions */}
                 <div className="flex items-center gap-3 relative">
@@ -54,22 +59,30 @@ export function Header() {
 
                     {/* User Menu */}
                     <div className="relative">
-                        <Button 
-                            variant="ghost-glass" 
-                            size="icon"
+                        <button
                             onClick={() => setIsDropdownOpenUser(!isDropdownOpenUser)}
+                            className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg hover:shadow-purple-500/30 transition-shadow overflow-hidden ring-2 ring-slate-700/50"
                         >
-                            <User className="h-5 w-5" />
-                        </Button>
-                        
-                        <UserDropdown 
-                            isOpen={isDropdownOpenUser} 
-                            onClose={() => setIsDropdownOpenUser(false)} 
+                            {photoUrl ? (
+                                <img
+                                    src={photoUrl}
+                                    alt={user?.name || "Usuário"}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <span className="text-sm">
+                                    {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || "U"}
+                                </span>
+                            )}
+                        </button>
+
+                        <UserDropdown
+                            isOpen={isDropdownOpenUser}
+                            onClose={() => setIsDropdownOpenUser(false)}
                         />
                     </div>
                 </div>
             </div>
-            <ToastContainer />
         </header>
     );
 }

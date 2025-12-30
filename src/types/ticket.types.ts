@@ -58,7 +58,7 @@ export interface CreatePublicTicketRequest {
  */
 export interface TicketListFilters extends PaginationParams {
   status?: TicketStatus;
-  search?: string;
+  text?: string;
 }
 
 /**

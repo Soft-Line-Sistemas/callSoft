@@ -12,8 +12,10 @@ import { Button } from "@/components/ui/button";
 import { useNotificationStore, NotificationCategory } from "@/store/notificationStore";
 import { rolesApi } from "@/services/roles.service";
 import { usersApi } from "@/services/users.service";
-import { Bell, Shield, Users, Server, DollarSign, MessageSquare } from "lucide-react";
+import { Bell, Shield, Users, Server, DollarSign, MessageSquare, Kanban } from "lucide-react";
 import WhatsAppContatosPage from "../whatsapp/contatos/page";
+import { getKanbanSyncEnabled, setKanbanSyncDisabled } from "@/lib/kanban-sync";
+import { toast } from "@/lib/toast";
 
 export default function SettingsPage() {
   const { preferences, togglePreference } = useNotificationStore();
@@ -26,6 +28,7 @@ export default function SettingsPage() {
   const [rolesMessage, setRolesMessage] = useState("");
   const [usersMessage, setUsersMessage] = useState("");
   const [permissionsMessage, setPermissionsMessage] = useState("");
+  const [kanbanSyncEnabled, setKanbanSyncEnabled] = useState(getKanbanSyncEnabled());
 
   const notificationSettings = [
     {
@@ -180,6 +183,17 @@ export default function SettingsPage() {
     },
   });
 
+  const handleKanbanSyncToggle = () => {
+    const newValue = !kanbanSyncEnabled;
+    setKanbanSyncEnabled(newValue);
+    setKanbanSyncDisabled(!newValue);
+    toast.success(
+      newValue
+        ? "Sincronização com Kanban ativada."
+        : "Sincronização com Kanban desativada."
+    );
+  };
+
   return (
     <div className="min-h-screen bg-navy-deep">
       <Sidebar />
@@ -271,8 +285,35 @@ export default function SettingsPage() {
 
           <TabsContent value="general">
             <Card className="border-slate-700/50 bg-slate-800/50 backdrop-blur-sm">
-              <CardContent className="p-8 text-center text-slate-400">
-                <p>Configurações gerais em desenvolvimento.</p>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Kanban className="w-5 h-5 text-purple-400" />
+                  Integrações
+                </CardTitle>
+                <CardDescription>
+                  Configure como diferentes partes do sistema interagem entre si.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="divide-y divide-slate-700/50">
+                  <div className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 rounded-lg bg-slate-700/50 text-slate-300">
+                        <Kanban size={20} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-200">Sincronização com Kanban</p>
+                        <p className="text-sm text-slate-400">
+                          Quando o status de um ticket mudar, perguntar se deseja mover o cartão correspondente no Kanban
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={kanbanSyncEnabled}
+                      onCheckedChange={handleKanbanSyncToggle}
+                    />
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

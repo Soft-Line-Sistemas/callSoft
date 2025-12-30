@@ -59,6 +59,10 @@ export const empresasApi = {
     });
     return response.data.data ?? [];
   },
+  getById: async (codEmp: number): Promise<EmpresaResponse> => {
+    const response = await api.get<ApiResponse<EmpresaResponse>>(`/api/v1/empresas/${codEmp}`);
+    return response.data.data!;
+  },
   listContacts: async (codEmp: number): Promise<EmpresaContactsResponse> => {
     const response = await api.get<ApiResponse<EmpresaContactsResponse>>(
       `/api/v1/empresas/${codEmp}/contatos`,
@@ -67,6 +71,10 @@ export const empresasApi = {
   },
   create: async (payload: CreateEmpresaRequest): Promise<EmpresaResponse> => {
     const response = await api.post<ApiResponse<EmpresaResponse>>('/api/v1/empresas', payload);
+    return response.data.data!;
+  },
+  update: async (codEmp: number, payload: CreateEmpresaRequest): Promise<EmpresaResponse> => {
+    const response = await api.put<ApiResponse<EmpresaResponse>>(`/api/v1/empresas/${codEmp}`, payload);
     return response.data.data!;
   },
 };

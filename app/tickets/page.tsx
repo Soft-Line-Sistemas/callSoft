@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Filter, Search, Eye, KanbanSquare, Loader2 } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { CreateTicketModal } from "@/components/modals/CreateTicketModal";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 const STATUS_OPTIONS: Array<{ value: TicketStatus | ""; label: string }> = [
   { value: "", label: "Todos" },
@@ -36,6 +37,21 @@ function statusBadgeVariant(status: TicketStatus) {
   }
 }
 
+function prioridadeClass(prioridade?: string | null) {
+  switch (prioridade) {
+    case "URGENTE":
+      return "text-red-400";
+    case "ALTA":
+      return "text-orange-300";
+    case "NORMAL":
+      return "text-yellow-300";
+    case "BAIXA":
+      return "text-emerald-300";
+    default:
+      return "text-slate-300";
+  }
+}
+
 export default function TicketsPage() {
   const router = useRouter();
   const { addNotification } = useNotificationStore();
@@ -52,17 +68,22 @@ export default function TicketsPage() {
   const [selectedKanbanId, setSelectedKanbanId] = useState<string>("");
   const isCreateNewSelected = selectedKanbanId === "__new__";
   const [kanbanLoading, setKanbanLoading] = useState(false);
+  const [hasLinkedKanban, setHasLinkedKanban] = useState(false);
+  const [didSelectKanban, setDidSelectKanban] = useState(false);
+
+  // Debounce do campo de texto para evitar requisições excessivas
+  const debouncedText = useDebouncedValue(text, 500);
 
   const params = useMemo(() => {
     return {
       status: status || undefined,
-      text: text || undefined,
+      text: debouncedText || undefined,
       from: from || undefined,
       to: to || undefined,
       page: 1,
       pageSize: 20,
     };
-  }, [status, text, from, to]);
+  }, [status, debouncedText, from, to]);
 
   const { data, isLoading, refetch } = useQuery<TicketListResponse>({
     queryKey: ["tickets", params],
@@ -91,6 +112,9 @@ export default function TicketsPage() {
   const handleCreateKanbanTask = async (ticket: Ticket) => {
     setKanbanModalTicket(ticket);
     setSelectedKanbanId("");
+    setKanbanOptions([]);
+    setHasLinkedKanban(false);
+    setDidSelectKanban(false);
     setIsKanbanModalOpen(true);
     setKanbanLoading(true);
     try {
@@ -100,15 +124,13 @@ export default function TicketsPage() {
         }),
         api.get("/api/v1/kanban", { params: { tipo: "SUPORTE" } }),
       ]);
-      const existing = existingRes.data?.data?.[0];
-      const options = (listRes.data?.data ?? []).map((k: any) => ({
+      const existing = existingRes.data?.data?.items?.[0];
+      const options = (listRes.data?.data?.items ?? []).map((k: any) => ({
         id: k.id,
         titulo: k.titulo,
       }));
       setKanbanOptions(options);
-      if (existing?.id) {
-        setSelectedKanbanId(existing.id);
-      }
+      setHasLinkedKanban(Boolean(existing?.id));
     } catch (error) {
       console.error("Erro ao carregar kanbans", error);
       addNotification({
@@ -125,6 +147,15 @@ export default function TicketsPage() {
 
   const handleAttachToKanban = async () => {
     if (!kanbanModalTicket || !selectedKanbanId) return;
+    if (!didSelectKanban) {
+      addNotification({
+        title: "Ação necessária",
+        message: "Selecione um Kanban antes de adicionar a tarefa.",
+        type: "warning",
+        category: "system",
+      });
+      return;
+    }
     setCreatingKanbanFor(kanbanModalTicket.id);
     try {
       const kanbanRes = await api.get(`/api/v1/kanban/${selectedKanbanId}`);
@@ -162,10 +193,19 @@ export default function TicketsPage() {
 
   const handleCreateNewKanban = async () => {
     if (!kanbanModalTicket) return;
+    if (!didSelectKanban) {
+      addNotification({
+        title: "Ação necessária",
+        message: "Selecione a opção de criar um novo Kanban antes de continuar.",
+        type: "warning",
+        category: "system",
+      });
+      return;
+    }
     setCreatingKanbanFor(kanbanModalTicket.id);
     try {
       const kanbanRes = await api.post("/api/v1/kanban", {
-        titulo: `Suporte #${kanbanModalTicket.pedido}`,
+        titulo: kanbanModalTicket.solicitacao ?? "Solicitação do cliente",
         descricao: kanbanModalTicket.solicitacao ?? null,
         tipo: "SUPORTE",
         referenciaId: kanbanModalTicket.id,
@@ -191,6 +231,7 @@ export default function TicketsPage() {
         category: "system",
       });
       setIsKanbanModalOpen(false);
+      router.push(`/kanban/${kanban.id}`);
     } catch (error: any) {
       console.error("Erro ao criar Kanban", error);
       addNotification({
@@ -306,7 +347,11 @@ export default function TicketsPage() {
                             {ticket.status.replace(/_/g, " ")}
                           </Badge>
                         </td>
-                        <td className="p-4 text-sm text-slate-300">{ticket.prioridade ?? "--"}</td>
+                        <td className="p-4 text-sm">
+                          <span className={prioridadeClass(ticket.prioridade)}>
+                            {ticket.prioridade ?? "--"}
+                          </span>
+                        </td>
                         <td className="p-4 text-sm text-slate-300 max-w-xs truncate" title={ticket.solicitacao || ""}>
                           {ticket.solicitacao ? ticket.solicitacao : "--"}
                         </td>
@@ -386,7 +431,19 @@ export default function TicketsPage() {
         }}
       />
 
-      <Dialog open={isKanbanModalOpen} onOpenChange={setIsKanbanModalOpen}>
+      <Dialog
+        open={isKanbanModalOpen}
+        onOpenChange={(open) => {
+          setIsKanbanModalOpen(open);
+          if (!open) {
+            setKanbanModalTicket(null);
+            setSelectedKanbanId("");
+            setKanbanOptions([]);
+            setHasLinkedKanban(false);
+            setDidSelectKanban(false);
+          }
+        }}
+      >
         <DialogContent className="bg-slate-900 text-slate-100 max-w-md">
           <DialogHeader>
             <DialogTitle>Adicionar ao Kanban</DialogTitle>
@@ -399,11 +456,14 @@ export default function TicketsPage() {
             <label className="text-xs text-slate-400">Kanban existente</label>
             <select
               value={selectedKanbanId}
-              onChange={(e) => setSelectedKanbanId(e.target.value)}
+              onChange={(e) => {
+                setSelectedKanbanId(e.target.value);
+                setDidSelectKanban(true);
+              }}
               className="w-full rounded-lg bg-slate-dark border border-slate-700 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500"
             >
               <option value="">Selecione...</option>
-              <option value="__new__">Criar novo Kanban (Suporte)</option>
+              <option value="__new__">Criar novo Kanban (Solicitação)</option>
               {kanbanOptions.map((k) => (
                 <option key={k.id} value={k.id}>
                   {k.titulo}
@@ -411,6 +471,11 @@ export default function TicketsPage() {
               ))}
             </select>
             {kanbanLoading && <div className="text-xs text-slate-400">Carregando kanbans...</div>}
+            {!kanbanLoading && hasLinkedKanban && (
+              <div className="text-xs text-amber-300">
+                Já existe um Kanban vinculado a este ticket. Selecione-o para adicionar a tarefa.
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2 justify-between">
@@ -419,6 +484,7 @@ export default function TicketsPage() {
                 variant="destructive"
                 onClick={handleCreateNewKanban}
                 disabled={creatingKanbanFor === kanbanModalTicket?.id}
+                type="button"
               >
                 Criar novo
               </Button>
@@ -427,13 +493,20 @@ export default function TicketsPage() {
               <Button
                 variant="outline"
                 onClick={() => setIsKanbanModalOpen(false)}
+                type="button"
               >
                 Cancelar
               </Button>
               <Button
                 variant="outline"
                 onClick={handleAttachToKanban}
-                disabled={!selectedKanbanId || isCreateNewSelected || creatingKanbanFor === kanbanModalTicket?.id}
+                disabled={
+                  kanbanLoading ||
+                  !selectedKanbanId ||
+                  isCreateNewSelected ||
+                  creatingKanbanFor === kanbanModalTicket?.id
+                }
+                type="button"
               >
                 Adicionar
               </Button>

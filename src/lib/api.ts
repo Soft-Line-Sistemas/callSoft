@@ -111,7 +111,8 @@ export interface ItemCotacao {
 
 export interface CreateCotacaoRequest {
   ticketId: string;
-  fornecedorId: string;
+  fornecedorId?: string;
+  empresaId?: number;
   itens: ItemCotacao[];
   descontoGlobal?: number;
   descontoTipo?: "PERCENTUAL" | "VALOR_ABSOLUTO";

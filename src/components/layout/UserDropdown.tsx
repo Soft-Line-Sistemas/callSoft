@@ -9,6 +9,7 @@ import { api } from "../../lib/api";
 import { clearAuthToken } from "../../lib/auth";
 import { useRouter } from "next/navigation";
 import { UserProfileModal } from "../modals/UserProfileModal";
+import { resolveUserPhotoUrl } from "../../lib/media";
 
 interface UserDropdownProps {
   isOpen: boolean;
@@ -44,10 +45,11 @@ export function UserDropdown({ isOpen, onClose }: UserDropdownProps) {
     queryKey: ['auth-me'],
     queryFn: async () => {
       const res = await api.get('/api/v1/auth/me');
-      return res.data;
+      return res.data?.data;
     },
     retry: false
   });
+  const photoUrl = resolveUserPhotoUrl(user?.profilePhotoUrl);
 
   const handleLogout = async () => {
     try {
@@ -87,8 +89,18 @@ export function UserDropdown({ isOpen, onClose }: UserDropdownProps) {
             {/* User Info Header */}
             <div className="p-4 border-b border-slate-700/50 bg-slate-800/30">
                 <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg shadow-purple-500/20 shrink-0">
-                        {user?.name?.charAt(0).toUpperCase() || "U"}
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg shadow-purple-500/20 shrink-0 overflow-hidden">
+                        {photoUrl ? (
+                            <img
+                                src={photoUrl}
+                                alt={user?.name || "Usuário"}
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            user?.name?.charAt(0).toUpperCase() ||
+                            user?.email?.charAt(0).toUpperCase() ||
+                            "U"
+                        )}
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-white truncate">

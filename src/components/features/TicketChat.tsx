@@ -41,6 +41,8 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
   const [isInternal, setIsInternal] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
+  const hasLoadedMessagesRef = useRef(false);
   const queryClient = useQueryClient();
   const { addNotification } = useNotificationStore();
 
@@ -165,7 +167,24 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
   };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 0) {
+      lastMessageIdRef.current = null;
+      return;
+    }
+
+    const lastMessage = messages[messages.length - 1];
+
+    if (!hasLoadedMessagesRef.current) {
+      hasLoadedMessagesRef.current = true;
+      lastMessageIdRef.current = lastMessage.id;
+      return;
+    }
+
+    if (lastMessage.id !== lastMessageIdRef.current && lastMessage.senderType !== "USER") {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    lastMessageIdRef.current = lastMessage.id;
   }, [messages]);
 
   const getSenderColor = (senderType: string) => {

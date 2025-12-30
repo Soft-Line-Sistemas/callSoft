@@ -7,6 +7,14 @@ export interface KanbanListItem {
   tipo: KanbanTipo;
   referenciaId?: string | null;
   pinned?: boolean;
+  responsaveis?: Array<{
+    userId: string;
+    user?: {
+      id: string;
+      email?: string | null;
+      profilePhotoUrl?: string | null;
+    } | null;
+  }>;
 }
 
 export interface KanbanColuna {

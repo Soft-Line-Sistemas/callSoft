@@ -1,5 +1,5 @@
 "use client";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 
 interface StatusData {
     name: string;
@@ -44,9 +44,7 @@ export function StatusPieChart({ data = [] }: StatusPieChartProps) {
                     paddingAngle={2}
                     dataKey="value"
                     labelLine={false}
-                    label={({ name, percent }) =>
-                        `${name ?? ''} (${((percent ?? 0) * 100).toFixed(0)}%)`
-                    }
+                    label={({ percent }) => `${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                     {data.map((entry, index) => (
                         <Cell
@@ -56,23 +54,6 @@ export function StatusPieChart({ data = [] }: StatusPieChartProps) {
                         />
                     ))}
                 </Pie>
-                <Tooltip
-                    contentStyle={{
-                        backgroundColor: "rgba(15, 23, 42, 0.9)",
-                        border: "1px solid rgba(255, 255, 255, 0.1)",
-                        borderRadius: "8px",
-                        color: "#fff",
-                    }}
-                    formatter={(value: number) => {
-                        if (!total) {
-                            return [`${value} tickets`, ""];
-                        }
-                        return [
-                            `${value} tickets (${((value / total) * 100).toFixed(1)}%)`,
-                            "",
-                        ];
-                    }}
-                />
                 <Legend
                     wrapperStyle={{ color: "#94a3b8" }}
                     formatter={(value) => (

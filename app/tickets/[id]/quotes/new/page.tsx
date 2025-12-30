@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { ArrowLeft, Save, Plus, Trash2, ShoppingCart, Calendar, DollarSign, Truck } from "lucide-react";
-import { api, CreateCotacaoRequest, ItemCotacao, FornecedorListResponse } from "@/lib/api";
+import { api, CreateCotacaoRequest, ItemCotacao } from "@/lib/api";
+import { empresasApi, type EmpresaResponse } from "@/services/empresas.service";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -16,20 +17,17 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
     const { addNotification } = useNotificationStore();
     const [isLoading, setIsLoading] = useState(false);
 
-    // Fetch Suppliers
-    const { data: suppliersData } = useQuery<FornecedorListResponse>({
-        queryKey: ["suppliers-list"],
-        queryFn: async () => {
-            const res = await api.get("/api/v1/fornecedores", { params: { limit: 100, isActive: true } });
-            return res.data;
-        }
+    // Fetch Empresas
+    const { data: empresasData = [] } = useQuery<EmpresaResponse[]>({
+        queryKey: ["empresas-list"],
+        queryFn: () => empresasApi.list()
     });
 
-    const suppliers = suppliersData?.data.items || [];
+    type QuoteFormData = Omit<CreateCotacaoRequest, "fornecedorId" | "empresaId"> & { empresaId: string };
 
-    const [formData, setFormData] = useState<CreateCotacaoRequest>({
+    const [formData, setFormData] = useState<QuoteFormData>({
         ticketId: params.id,
-        fornecedorId: "",
+        empresaId: "",
         itens: [
             { descricao: "", quantidade: 1, unidade: "UN", codigoPeca: "" }
         ],
@@ -65,10 +63,10 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!formData.fornecedorId) {
+        if (!formData.empresaId) {
             addNotification({
                 title: "Erro de Validação",
-                message: "Selecione um fornecedor.",
+                message: "Selecione uma empresa.",
                 type: "error",
                 category: "system"
             });
@@ -87,7 +85,12 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
 
         setIsLoading(true);
         try {
-            await api.post("/api/v1/quotes", formData);
+            const { empresaId, ...rest } = formData;
+            const payload: CreateCotacaoRequest = {
+                ...rest,
+                empresaId: Number(empresaId)
+            };
+            await api.post("/api/v1/cotacoes", payload);
             addNotification({
                 title: "Sucesso",
                 message: "Cotação criada com sucesso!",
@@ -125,27 +128,29 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
 
                     <form onSubmit={handleSubmit} className="space-y-6 animate-slide-up" style={{ animationDelay: "100ms" }}>
                         
-                        {/* Fornecedor */}
+                        {/* Empresa */}
                         <Card variant="glass">
                             <CardHeader>
                                 <div className="flex items-center gap-3">
                                     <div className="h-10 w-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
                                         <Truck className="h-5 w-5 text-blue-400" />
                                     </div>
-                                    <CardTitle>Fornecedor</CardTitle>
+                                    <CardTitle>Empresa</CardTitle>
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">Selecione o Fornecedor *</label>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">Selecione a Empresa *</label>
                                 <select
                                     className="w-full rounded-lg bg-slate-900/50 border border-slate-700 p-3 text-slate-100 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all"
-                                    value={formData.fornecedorId}
-                                    onChange={(e) => setFormData({...formData, fornecedorId: e.target.value})}
+                                    value={formData.empresaId}
+                                    onChange={(e) => setFormData({...formData, empresaId: e.target.value})}
                                     required
                                 >
                                     <option value="">Selecione...</option>
-                                    {suppliers.map(s => (
-                                        <option key={s.id} value={s.id}>{s.nome} {s.cnpj ? `(${s.cnpj})` : ''}</option>
+                                    {empresasData.map((empresa) => (
+                                        <option key={empresa.codEmp} value={String(empresa.codEmp)}>
+                                            {empresa.nomeFantasia || empresa.razaoSocial} {empresa.cnpj ? `(${empresa.cnpj})` : ""}
+                                        </option>
                                     ))}
                                 </select>
                             </CardContent>

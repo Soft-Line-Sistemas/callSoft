@@ -10,6 +10,7 @@ import { useNotificationStore } from "../../store/notificationStore";
 import { User } from "../../lib/auth";
 import { Camera, Save, Lock, User as UserIcon, Shield } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { resolveUserPhotoUrl } from "../../lib/media";
 
 interface UserProfileModalProps {
     isOpen: boolean;
@@ -27,9 +28,23 @@ export function UserProfileModal({ isOpen, onClose, user, isLoadingData = false 
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-    // Photo State (Mock)
+    // Photo State
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+
+    // Atualizar preview quando o usuário mudar
+    useEffect(() => {
+        if (user?.profilePhotoUrl) {
+            setPhotoPreview(resolveUserPhotoUrl(user.profilePhotoUrl));
+        } else {
+            setPhotoPreview(null);
+        }
+        setName(user?.name || "");
+        setEmail(user?.email || "");
+    }, [user]);
 
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -87,23 +102,98 @@ export function UserProfileModal({ isOpen, onClose, user, isLoadingData = false 
         }
     };
 
-    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleProfileUpdate = async () => {
+        setIsSavingProfile(true);
+        try {
+            await api.put("/api/v1/auth/me", {
+                name: name.trim() || undefined,
+                email: email.trim() || undefined,
+            });
+
+            await queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+
+            addNotification({
+                title: "Sucesso",
+                message: "Seus dados foram atualizados.",
+                type: "success",
+                category: "system",
+            });
+        } catch (error: any) {
+            addNotification({
+                title: "Erro",
+                message: error.response?.data?.message || "Erro ao atualizar seus dados.",
+                type: "error",
+                category: "system",
+            });
+        } finally {
+            setIsSavingProfile(false);
+        }
+    };
+
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // Validar tamanho do arquivo (máximo 2MB)
+            const maxSize = 2 * 1024 * 1024; // 2MB
+            if (file.size > maxSize) {
+                addNotification({
+                    title: "Erro",
+                    message: "A foto deve ter no máximo 2MB.",
+                    type: "error",
+                    category: "system"
+                });
+                return;
+            }
+
+            // Validar tipo de arquivo
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+            if (!allowedTypes.includes(file.type)) {
+                addNotification({
+                    title: "Erro",
+                    message: "Apenas arquivos PNG, JPG ou JPEG são permitidos.",
+                    type: "error",
+                    category: "system"
+                });
+                return;
+            }
+
+            // Preview local
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPhotoPreview(reader.result as string);
             };
             reader.readAsDataURL(file);
-            
-            // In a real app, we would upload here
-            // await api.post('/api/v1/users/photo', formData)
-            addNotification({
-                title: "Foto Atualizada",
-                message: "Sua foto de perfil foi atualizada com sucesso.",
-                type: "success",
-                category: "system"
-            });
+
+            // Upload para o servidor
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                await api.post('/api/v1/upload/usuario', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
+
+                // Invalidar cache do usuário para recarregar com a nova foto
+                await queryClient.invalidateQueries({ queryKey: ['auth-me'] });
+
+                addNotification({
+                    title: "Foto Atualizada",
+                    message: "Sua foto de perfil foi atualizada com sucesso.",
+                    type: "success",
+                    category: "system"
+                });
+            } catch (error: any) {
+                console.error("Erro ao fazer upload da foto:", error);
+                setPhotoPreview(null); // Remover preview em caso de erro
+                addNotification({
+                    title: "Erro",
+                    message: error.response?.data?.message || "Erro ao atualizar foto de perfil.",
+                    type: "error",
+                    category: "system"
+                });
+            }
         }
     };
 
@@ -141,7 +231,9 @@ export function UserProfileModal({ isOpen, onClose, user, isLoadingData = false 
                                         {photoPreview ? (
                                             <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
                                         ) : (
-                                            user?.name?.charAt(0).toUpperCase() || "U"
+                                            user?.name?.charAt(0).toUpperCase() ||
+                                            user?.email?.charAt(0).toUpperCase() ||
+                                            "U"
                                         )}
                                     </div>
                                     <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
@@ -156,21 +248,28 @@ export function UserProfileModal({ isOpen, onClose, user, isLoadingData = false 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-xs font-medium text-slate-400 uppercase">Nome Completo</label>
-                                    <div className="p-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 min-h-[46px]">
-                                        {user?.name || "..."}
-                                    </div>
+                                    <Input
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder="Seu nome"
+                                        className="bg-slate-900/50"
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-medium text-slate-400 uppercase">Email</label>
-                                    <div className="p-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 min-h-[46px]">
-                                        {user?.email || "..."}
-                                    </div>
+                                    <Input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="Seu email"
+                                        className="bg-slate-900/50"
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-medium text-slate-400 uppercase">Função / Cargo</label>
                                     <div className="flex items-center gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 min-h-[46px]">
                                         <Shield className="w-4 h-4 text-purple-400" />
-                                        <span>{user?.role === 'admin' ? 'Administrador' : (user?.role || "...")}</span>
+                                        <span>{user?.role === 'admin' ? 'Administrador' : (user?.role || user?.roles?.[0] || "...")}</span>
                                     </div>
                                 </div>
                                 <div className="space-y-2">
@@ -180,12 +279,15 @@ export function UserProfileModal({ isOpen, onClose, user, isLoadingData = false 
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 flex items-start gap-3 mt-4">
-                                <UserIcon className="w-5 h-5 text-blue-400 mt-0.5" />
-                                <p className="text-xs text-blue-300">
-                                    Para alterar seus dados cadastrais (Nome, Email, etc), entre em contato com um administrador do sistema.
-                                </p>
+
+                            <div className="flex justify-end">
+                                <Button
+                                    type="button"
+                                    onClick={handleProfileUpdate}
+                                    disabled={isSavingProfile}
+                                >
+                                    {isSavingProfile ? "Salvando..." : "Salvar alterações"}
+                                </Button>
                             </div>
                         </TabsContent>
 

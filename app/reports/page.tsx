@@ -5,9 +5,11 @@ import { Header } from "@/components/layout/Header";
 import { StatCard, type StatCardProps } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { Calendar, Download, TrendingUp, Users, Clock } from "lucide-react";
+import { Calendar, Download, TrendingUp, Users, Clock, FileText, FileSpreadsheet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type TicketMetrics } from "@/lib/api";
+import { useState, useRef, useEffect } from "react";
+import { exportTicketMetricsToCSV, exportTicketMetricsToPDF } from "@/lib/exportTicketMetrics";
 import {
   ResponsiveContainer,
   LineChart,
@@ -22,6 +24,10 @@ import {
 } from "recharts";
 
 export default function ReportsPage() {
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
   const { data: metrics, isLoading } = useQuery<TicketMetrics>({
     queryKey: ["ticket-metrics"],
     queryFn: async () => {
@@ -87,6 +93,44 @@ export default function ReportsPage() {
         ]
       : [];
 
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+
+    if (isExportMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isExportMenuOpen]);
+
+  const handleExport = (format: 'pdf' | 'csv') => {
+    console.log('handleExport called with format:', format);
+    console.log('metrics:', metrics);
+
+    setIsExporting(true);
+    setIsExportMenuOpen(false);
+
+    try {
+      if (format === 'pdf') {
+        exportTicketMetricsToPDF(metrics, "Relatórios");
+      } else {
+        exportTicketMetricsToCSV(metrics, "Relatórios");
+      }
+    } catch (error) {
+      console.error('Error exporting:', error);
+      alert('Erro ao exportar. Por favor, tente novamente.');
+    } finally {
+      setTimeout(() => setIsExporting(false), 500);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <Sidebar />
@@ -104,10 +148,50 @@ export default function ReportsPage() {
                 <Calendar className="h-4 w-4 mr-2" />
                 Último mês
               </Button>
-              <Button variant="gradient">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
+              <div className="relative" ref={exportMenuRef}>
+                <Button
+                  variant="gradient"
+                  onClick={() => {
+                    console.log('Export button clicked, current state:', isExportMenuOpen);
+                    setIsExportMenuOpen(!isExportMenuOpen);
+                  }}
+                  disabled={isExporting}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {isExporting ? 'Exportando...' : 'Exportar'}
+                </Button>
+
+                {isExportMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                    <div className="py-1">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('PDF button clicked');
+                          handleExport('pdf');
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700/50 flex items-center gap-2 transition-colors"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Exportar como PDF
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('CSV button clicked');
+                          handleExport('csv');
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700/50 flex items-center gap-2 transition-colors"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Exportar como CSV
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
