@@ -20,6 +20,7 @@ import { clearAuthToken } from "../../lib/auth";
 import { useAuth } from "@/hooks/auth";
 import { hasPermission } from "@/lib/permissions";
 import { useAuthStore } from "@/store/authStore";
+import { resolveUserPhotoUrl } from "../../lib/media";
 
 interface NavItem {
     name: string;
@@ -75,6 +76,11 @@ export function Sidebar() {
     const roleLabel =
         userProfile?.role ||
         (Array.isArray(userProfile?.roles) && userProfile.roles.length > 0 ? userProfile.roles[0] : undefined);
+    const userInitial =
+        userProfile?.name?.charAt(0).toUpperCase() ||
+        userProfile?.email?.charAt(0).toUpperCase() ||
+        "U";
+    const photoUrl = resolveUserPhotoUrl(userProfile?.profilePhotoUrl);
 
     return (
         <aside className="fixed left-0 top-0 z-40 h-screen w-64 glass border-r border-white/10">
@@ -120,8 +126,16 @@ export function Sidebar() {
             <div className="absolute bottom-4 left-4 right-4">
                 <div className="bg-slate-800/40 backdrop-blur-md border border-white/5 rounded-xl p-3 shadow-lg group hover:bg-slate-800/60 transition-all duration-300">
                     <div className="flex items-center gap-3 mb-3">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg shadow-purple-500/20">
-                            {userProfile?.email?.charAt(0).toUpperCase() || "U"}
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold shadow-lg shadow-purple-500/20 overflow-hidden">
+                            {photoUrl ? (
+                                <img
+                                    src={photoUrl}
+                                    alt={userProfile?.name || "Usuário"}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                userInitial
+                            )}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-white truncate">

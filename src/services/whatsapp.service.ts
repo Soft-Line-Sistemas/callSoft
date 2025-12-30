@@ -105,4 +105,14 @@ export const whatsappApi = {
     );
     return mapNotificationToMessage(response.data.data!);
   },
+
+  /**
+   * Disconnect WhatsApp session and clear cache.
+   */
+  disconnect: async (): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post<{ success: boolean; message: string }>(
+      '/api/v1/whatsapp/disconnect'
+    );
+    return response.data;
+  },
 };

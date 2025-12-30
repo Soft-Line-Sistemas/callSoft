@@ -2,14 +2,16 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useState } from "react";
 import { Input } from "@/components/ui/Input";
-import { Smartphone, Clock, CheckCircle2, XCircle, RefreshCw, MessageCircle } from "lucide-react";
-import { useWhatsAppMessages, useWhatsAppQrStatus } from "@/hooks/whatsapp";
+import { Button } from "@/components/ui/button";
+import { Smartphone, Clock, CheckCircle2, XCircle, RefreshCw, MessageCircle, LogOut } from "lucide-react";
+import { useWhatsAppMessages, useWhatsAppQrStatus, useDisconnectWhatsApp } from "@/hooks/whatsapp";
 import { useHealth } from "@/hooks/useHealth";
 import { WhatsAppMessageStatus, type WhatsAppMessage } from "@/types/whatsapp.types";
 
 export default function WhatsAppContatosPage() {
   const [manualQrText, setManualQrText] = useState<string>("");
   const { data: qrStatus, isLoading: isQrLoading } = useWhatsAppQrStatus();
+  const disconnectMutation = useDisconnectWhatsApp();
   const { data: messageData, isLoading: isMessagesLoading } = useWhatsAppMessages({
     page: 1,
     pageSize: 10,
@@ -58,6 +60,19 @@ export default function WhatsAppContatosPage() {
       hour: "2-digit",
       minute: "2-digit"
     });
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm("Tem certeza que deseja desconectar o WhatsApp? Você precisará escanear o QR Code novamente.")) {
+      return;
+    }
+
+    try {
+      await disconnectMutation.mutateAsync();
+      alert("WhatsApp desconectado com sucesso!");
+    } catch (error) {
+      alert("Erro ao desconectar WhatsApp: " + (error instanceof Error ? error.message : "Erro desconhecido"));
+    }
   };
 
   return (
@@ -129,9 +144,23 @@ export default function WhatsAppContatosPage() {
         {/* Status / Instructions Card could go here or just keep full width history below */}
         <Card variant="glass" className="h-full">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-blue-400" />
-                    Status da Conexão
+                <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-blue-400" />
+                        Status da Conexão
+                    </div>
+                    {qrReady && (
+                        <Button
+                            onClick={handleDisconnect}
+                            disabled={disconnectMutation.isPending}
+                            variant="destructive"
+                            size="sm"
+                            className="gap-2"
+                        >
+                            <LogOut className="w-4 h-4" />
+                            {disconnectMutation.isPending ? "Desconectando..." : "Desconectar"}
+                        </Button>
+                    )}
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -142,7 +171,7 @@ export default function WhatsAppContatosPage() {
                         <p className="text-sm opacity-80">{statusInfo.description}</p>
                     </div>
                 </div>
-                
+
                 <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-300">Dicas de conexão:</p>
                     <ul className="space-y-2 text-sm text-slate-400">

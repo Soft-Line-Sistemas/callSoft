@@ -44,9 +44,9 @@ export function TicketFilters({
         <Input
           id={searchId}
           type="search"
-          placeholder="Buscar por nome, telefone ou descrição"
-          value={searchValue ?? filters.search ?? ''}
-          onChange={(event) => onChange({ search: event.target.value })}
+          placeholder="Buscar por solicitação ou contato WhatsApp"
+          value={searchValue ?? filters.text ?? ''}
+          onChange={(event) => onChange({ text: event.target.value })}
           leftIcon={<Search className="h-4 w-4" />}
           className="w-full"
         />

@@ -23,6 +23,7 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isResetOpen, setIsResetOpen] = useState(false);
     const [resetEmail, setResetEmail] = useState("");
+    const [resetPhone, setResetPhone] = useState("");
     const [isResetLoading, setIsResetLoading] = useState(false);
     const [isFirstLoginOpen, setIsFirstLoginOpen] = useState(false);
     const [firstLoginEmail, setFirstLoginEmail] = useState("");
@@ -76,7 +77,7 @@ export default function LoginPage() {
                 
                 addNotification({
                     title: "Bem-vindo!",
-                    message: `Login realizado com sucesso. Olá, ${data.user.name}!`,
+                    message: `Login realizado com sucesso. Olá, ${data?.user?.name ?? data?.user?.email ?? "usuário"}!`,
                     type: "success",
                     category: "system"
                 });
@@ -147,16 +148,18 @@ export default function LoginPage() {
             }
             await api.post("/api/v1/auth/password-reset/request", {
                 email: resetEmail,
+                phone: resetPhone,
                 tenantId
             });
             addNotification({
-                title: "Email Enviado",
-                message: "Verifique sua caixa de entrada para redefinir a senha.",
+                title: "WhatsApp Enviado",
+                message: "Verifique seu WhatsApp para redefinir a senha.",
                 type: "success",
                 category: "system"
             });
             setIsResetOpen(false);
             setResetEmail("");
+            setResetPhone("");
         } catch (error: any) {
              addNotification({
                 title: "Erro",
@@ -325,7 +328,7 @@ export default function LoginPage() {
                         <DialogTitle>Redefinir Senha</DialogTitle>
                     </DialogHeader>
                     <p className="text-slate-400 mb-4 text-sm">
-                        Digite seu email para receber o link de redefinição.
+                        Digite seu email e telefone cadastrado para receber o link de redefinição.
                     </p>
                     <form onSubmit={handleResetPassword} className="space-y-4">
                         <div>
@@ -335,6 +338,16 @@ export default function LoginPage() {
                                 placeholder="seu@email.com" 
                                 value={resetEmail} 
                                 onChange={e => setResetEmail(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">Telefone cadastrado</label>
+                            <Input 
+                                type="tel" 
+                                placeholder="(XX) 9XXXX-XXXX"
+                                value={resetPhone} 
+                                onChange={e => setResetPhone(e.target.value)}
                                 required
                             />
                         </div>

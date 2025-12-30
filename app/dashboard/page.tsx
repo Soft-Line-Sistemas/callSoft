@@ -4,19 +4,58 @@ import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusPieChart } from "@/components/charts/StatusPieChart";
 import { OpenTicketsKpi } from "@/components/ui/KpiCard";
-import { Ticket as TicketIcon, MessageCircle, CheckCircle, Clock } from "lucide-react";
+import { Ticket as TicketIcon, MessageCircle, CheckCircle, Clock, Download, FileText, FileSpreadsheet } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/Badge";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { api, TicketMetrics, TicketListResponse } from "@/lib/api";
+import { useAuth } from "@/hooks/auth";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { exportTicketMetricsToCSV, exportTicketMetricsToPDF } from "@/lib/exportTicketMetrics";
 
 export default function DashboardPage() {
-    const { data: metrics, isLoading: isLoadingMetrics } = useQuery<TicketMetrics>({
-        queryKey: ["dashboard-metrics"],
+    const router = useRouter();
+    const { data: authUser } = useAuth();
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+
+    const { currentRange, previousRange } = useMemo(() => {
+        const now = new Date();
+        const currentFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+        const previousFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const previousTo = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        return {
+            currentRange: { from: currentFrom, to: now },
+            previousRange: { from: previousFrom, to: previousTo },
+        };
+    }, []);
+
+    const { data: metricsCurrent, isLoading: isLoadingMetrics } = useQuery<TicketMetrics>({
+        queryKey: ["dashboard-metrics-current", currentRange.from.toISOString(), currentRange.to.toISOString()],
         queryFn: async () => {
-            const res = await api.get("/api/v1/metrics/tickets");
+            const res = await api.get("/api/v1/metrics/tickets", {
+                params: {
+                    from: currentRange.from.toISOString(),
+                    to: currentRange.to.toISOString(),
+                },
+            });
+            return res.data.data;
+        }
+    });
+
+    const { data: metricsPrevious } = useQuery<TicketMetrics>({
+        queryKey: ["dashboard-metrics-previous", previousRange.from.toISOString(), previousRange.to.toISOString()],
+        queryFn: async () => {
+            const res = await api.get("/api/v1/metrics/tickets", {
+                params: {
+                    from: previousRange.from.toISOString(),
+                    to: previousRange.to.toISOString(),
+                },
+            });
             return res.data.data;
         }
     });
@@ -29,59 +68,131 @@ export default function DashboardPage() {
         }
     });
 
-    const statusCounts = metrics?.statusCounts;
+    const statusCounts = metricsCurrent?.statusCounts;
+    const previousStatusCounts = metricsPrevious?.statusCounts;
     const totalTickets = statusCounts ? Object.values(statusCounts).reduce((acc, value) => acc + value, 0) : 0;
     const novosTickets = statusCounts?.SOLICITADO ?? 0;
     const resolvidosTickets = statusCounts?.CONCLUIDO ?? 0;
     const emAbertoTickets = (statusCounts?.PENDENTE_ATENDIMENTO ?? 0) + (statusCounts?.EM_ATENDIMENTO ?? 0);
+    const previousTotalTickets = previousStatusCounts
+        ? Object.values(previousStatusCounts).reduce((acc, value) => acc + value, 0)
+        : 0;
+    const previousNovosTickets = previousStatusCounts?.SOLICITADO ?? 0;
+    const previousResolvidosTickets = previousStatusCounts?.CONCLUIDO ?? 0;
+
+    const computeTrend = (current: number | null | undefined, previous: number | null | undefined, inverse = false) => {
+        const safeCurrent = current ?? 0;
+        const safePrevious = previous ?? 0;
+        const value =
+            safePrevious === 0
+                ? safeCurrent === 0
+                    ? 0
+                    : 100
+                : ((safeCurrent - safePrevious) / safePrevious) * 100;
+        return {
+            value: Math.round(value),
+            isPositive: inverse ? safeCurrent <= safePrevious : safeCurrent >= safePrevious,
+        };
+    };
 
     const stats = [
         {
             title: "Total de Tickets",
             value: totalTickets.toString(),
             icon: TicketIcon,
-            trend: { value: 0, isPositive: true },
+            trend: computeTrend(totalTickets, previousTotalTickets),
             variant: "glass-blue" as const,
         },
         {
             title: "Novos Tickets",
             value: novosTickets.toString(),
             icon: MessageCircle,
-            trend: { value: 0, isPositive: true },
+            trend: computeTrend(novosTickets, previousNovosTickets),
             variant: "glass-cyan" as const,
         },
         {
             title: "Tickets Resolvidos",
             value: resolvidosTickets.toString(),
             icon: CheckCircle,
-            trend: { value: 0, isPositive: true },
+            trend: computeTrend(resolvidosTickets, previousResolvidosTickets),
             variant: "glass-purple" as const,
         },
         {
             title: "Tempo Médio (min)",
-            value: metrics?.averageTimeToFirstAttendanceMinutes != null ? Math.round(metrics.averageTimeToFirstAttendanceMinutes).toString() : "--",
+            value: metricsCurrent?.averageTimeToFirstAttendanceMinutes != null ? Math.round(metricsCurrent.averageTimeToFirstAttendanceMinutes).toString() : "--",
             icon: Clock,
-            trend: { value: 0, isPositive: false },
+            trend: computeTrend(
+                metricsCurrent?.averageTimeToFirstAttendanceMinutes ?? null,
+                metricsPrevious?.averageTimeToFirstAttendanceMinutes ?? null,
+                true
+            ),
             variant: "glass-pink" as const,
         },
     ];
 
     const chamadosEmAberto = emAbertoTickets;
 
-    const lineData = metrics?.volumeByDate.map(d => ({
+    const lineData = metricsCurrent?.volumeByDate.map(d => ({
         name: new Date(d.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
         value: d.total,
     })) || [];
 
-    const pieData = metrics ? [
-        { name: "Solicitado", value: metrics.statusCounts.SOLICITADO, color: "#f59e0b" },
-        { name: "Pendente", value: metrics.statusCounts.PENDENTE_ATENDIMENTO, color: "#3b82f6" },
-        { name: "Em Atendimento", value: metrics.statusCounts.EM_ATENDIMENTO, color: "#8b5cf6" },
-        { name: "Concluído", value: metrics.statusCounts.CONCLUIDO, color: "#22c55e" },
-        { name: "Cancelado", value: metrics.statusCounts.CANCELADO, color: "#ef4444" },
+    const pieData = metricsCurrent ? [
+        { name: "Solicitado", value: metricsCurrent.statusCounts.SOLICITADO, color: "#f59e0b" },
+        { name: "Pendente", value: metricsCurrent.statusCounts.PENDENTE_ATENDIMENTO, color: "#3b82f6" },
+        { name: "Em Atendimento", value: metricsCurrent.statusCounts.EM_ATENDIMENTO, color: "#8b5cf6" },
+        { name: "Concluído", value: metricsCurrent.statusCounts.CONCLUIDO, color: "#22c55e" },
+        { name: "Cancelado", value: metricsCurrent.statusCounts.CANCELADO, color: "#ef4444" },
     ] : [];
 
     const recentTickets = recentTicketsData?.items || [];
+    const tenantLabel = authUser?.tenantId ?? "CALLSOFT";
+
+    function capitalizeFirstLetter(text: string) {
+        if (!text) return text;
+        return text.toUpperCase();
+    }
+
+    const tenantName = capitalizeFirstLetter(tenantLabel);
+
+    // Close export menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setIsExportMenuOpen(false);
+            }
+        };
+
+        if (isExportMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isExportMenuOpen]);
+
+    const handleExport = (format: 'pdf' | 'csv') => {
+        console.log('handleExport called with format:', format);
+        console.log('metricsCurrent:', metricsCurrent);
+        console.log('tenantName:', tenantName);
+
+        setIsExporting(true);
+        setIsExportMenuOpen(false);
+
+        try {
+            if (format === 'pdf') {
+                exportTicketMetricsToPDF(metricsCurrent, tenantName);
+            } else {
+                exportTicketMetricsToCSV(metricsCurrent, tenantName);
+            }
+        } catch (error) {
+            console.error('Error exporting:', error);
+            alert('Erro ao exportar. Por favor, tente novamente.');
+        } finally {
+            setTimeout(() => setIsExporting(false), 500);
+        }
+    };
 
     return (
         <div className="min-h-screen">
@@ -95,7 +206,7 @@ export default function DashboardPage() {
                         <div>
                             <h1 className="text-3xl font-bold text-white flex items-center gap-2">
                                 <span className="w-2 h-8 bg-blue-500 rounded-full inline-block"></span>
-                                CALLSOFT Analytics
+                                {tenantName}
                             </h1>
                             <p className="mt-1 text-slate-400 text-sm ml-4">
                                 Visão geral de métricas e performance
@@ -106,9 +217,50 @@ export default function DashboardPage() {
                                 <Clock className="w-4 h-4 text-slate-400" />
                                 <span>Hoje: {new Date().toLocaleDateString('pt-BR')}</span>
                             </div>
-                            <button className="bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition-colors">
-                                Export (PDF, CSV)
-                            </button>
+                            <div className="relative" ref={exportMenuRef}>
+                                <button
+                                    onClick={() => {
+                                        console.log('Export button clicked, current state:', isExportMenuOpen);
+                                        setIsExportMenuOpen(!isExportMenuOpen);
+                                    }}
+                                    disabled={isExporting}
+                                    className="bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    {isExporting ? 'Exportando...' : 'Export (PDF, CSV)'}
+                                </button>
+
+                                {isExportMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                                        <div className="py-1">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    console.log('PDF button clicked');
+                                                    handleExport('pdf');
+                                                }}
+                                                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700/50 flex items-center gap-2 transition-colors"
+                                            >
+                                                <FileText className="w-4 h-4" />
+                                                Exportar como PDF
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    console.log('CSV button clicked');
+                                                    handleExport('csv');
+                                                }}
+                                                className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-700/50 flex items-center gap-2 transition-colors"
+                                            >
+                                                <FileSpreadsheet className="w-4 h-4" />
+                                                Exportar como CSV
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -139,6 +291,9 @@ export default function DashboardPage() {
                                     </div>
                                     <select className="bg-slate-800 border-slate-700 text-xs rounded px-2 py-1 text-slate-400">
                                         <option>Automático</option>
+                                        <option>Manual</option>
+                                        <option>Híbrido</option>
+                                        <option>Todos</option>
                                     </select>
                                 </CardHeader>
                                 <CardContent>
@@ -277,7 +432,12 @@ export default function DashboardPage() {
                                                     {new Date(row.createdAt).toLocaleDateString('pt-BR')}
                                                 </td>
                                                 <td className="p-4 text-sm text-right">
-                                                    <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onClick={() => router.push(`/tickets/${row.id}`)}
+                                                    >
                                                         Detalhes
                                                     </Button>
                                                 </td>

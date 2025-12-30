@@ -2,9 +2,10 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role?: string | null;
   roles?: string[];
   permissions: string[];
+  profilePhotoUrl?: string | null;
   createdAt?: string;
 }
 

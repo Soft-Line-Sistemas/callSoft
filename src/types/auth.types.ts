@@ -66,6 +66,7 @@ export interface User {
  */
 export interface PasswordResetRequestRequest {
   email: string;
+  phone: string;
   tenantId: string;
 }
 

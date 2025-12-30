@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { empresasApi } from "@/services/empresas.service";
+import { useSearchParams, useRouter } from "next/navigation";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -21,6 +22,11 @@ import { Button } from "@/components/ui/button";
 import { Building2, Search, Phone, MapPin } from "lucide-react";
 
 export default function CriarEmpresaPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const codEmp = searchParams.get("codEmp");
+  const isEditMode = !!codEmp;
+
   // ======================================================
   // STATES
   // ======================================================
@@ -43,6 +49,35 @@ export default function CriarEmpresaPage() {
   const [telefoneSec, setTelefoneSec] = useState("");
   const [cabecalho, setCabecalho] = useState("");
   const [observacao, setObservacao] = useState("");
+
+  // ======================================================
+  // LOAD EMPRESA DATA IF EDIT MODE
+  // ======================================================
+
+  const { data: empresaData, isLoading: isLoadingEmpresa } = useQuery({
+    queryKey: ["empresa", codEmp],
+    queryFn: () => empresasApi.getById(Number(codEmp)),
+    enabled: isEditMode,
+  });
+
+  useEffect(() => {
+    if (empresaData) {
+      setCnpj(empresaData.cnpj || "");
+      setNomeFantasia(empresaData.nomeFantasia || "");
+      setRazaoSocial(empresaData.razaoSocial || "");
+      setInscEstadual(empresaData.inscEstadual || "");
+      setIm(empresaData.im || "");
+      setCep(empresaData.cep || "");
+      setEndereco(empresaData.endereco || "");
+      setBairro(empresaData.bairro || "");
+      setCidade(empresaData.cidade || "");
+      setEstado(empresaData.estado || "");
+      setTelefone(empresaData.telefone || "");
+      setTelefoneSec(empresaData.telefoneSec || "");
+      setCabecalho(empresaData.cabecalho || "");
+      setObservacao(empresaData.observacao || "");
+    }
+  }, [empresaData]);
 
   // ======================================================
   // BUSCA CNPJ (API PÚBLICA)
@@ -85,12 +120,12 @@ export default function CriarEmpresaPage() {
   }
 
   // ======================================================
-  // MUTATION – CRIAR EMPRESA
+  // MUTATION – CRIAR/EDITAR EMPRESA
   // ======================================================
 
   const mutation = useMutation({
     mutationFn: async () => {
-      return empresasApi.create({
+      const payload = {
         nomeFantasia,
         razaoSocial,
         cnpj: cnpj || undefined,
@@ -105,8 +140,23 @@ export default function CriarEmpresaPage() {
         telefoneSec: telefoneSec || undefined,
         cabecalho: cabecalho || undefined,
         observacao: observacao || undefined
-      });
-    }
+      };
+
+      if (isEditMode) {
+        return empresasApi.update(Number(codEmp), payload);
+      } else {
+        return empresasApi.create(payload);
+      }
+    },
+    onSuccess: () => {
+      if (isEditMode) {
+        alert("Empresa atualizada com sucesso!");
+        router.back();
+      } else {
+        alert("Empresa criada com sucesso!");
+        router.push("/empresas");
+      }
+    },
   });
 
   const disabled = !cnpj || !razaoSocial;
@@ -114,6 +164,20 @@ export default function CriarEmpresaPage() {
   // ======================================================
   // RENDER
   // ======================================================
+
+  if (isEditMode && isLoadingEmpresa) {
+    return (
+      <div className="min-h-screen bg-navy-deep">
+        <Sidebar />
+        <Header />
+        <main className="ml-64 mt-16 p-6">
+          <div className="max-w-4xl mx-auto text-center text-white">
+            Carregando dados da empresa...
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-navy-deep">
@@ -126,7 +190,7 @@ export default function CriarEmpresaPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
-                Criar Empresa
+                {isEditMode ? "Editar Empresa" : "Criar Empresa"}
               </CardTitle>
             </CardHeader>
 
@@ -190,7 +254,7 @@ export default function CriarEmpresaPage() {
                 isLoading={mutation.isPending}
                 disabled={disabled}
               >
-                Salvar Empresa
+                {isEditMode ? "Atualizar Empresa" : "Salvar Empresa"}
               </Button>
             </CardFooter>
           </Card>

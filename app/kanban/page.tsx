@@ -13,6 +13,7 @@ import {
   List,
   LayoutGrid,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -21,7 +22,9 @@ import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
+import { hasPermission } from "@/lib/permissions";
 import { KanbanListItem, KanbanTipo } from "@/types";
+import { useAuthStore } from "@/store/authStore";
 
 const tipoConfig: Record<KanbanTipo, { label: string; icon: React.ReactNode; bg: string; descricao: string }> = {
   PROJETO: {
@@ -74,6 +77,10 @@ export default function KanbanListPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingKanban, setEditingKanban] = useState<KanbanListItem | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [isResponsaveisOpen, setIsResponsaveisOpen] = useState(false);
+  const [selectedKanban, setSelectedKanban] = useState<KanbanListItem | null>(null);
+  const userPermissions = useAuthStore((state) => state.user?.permissions);
+  const canDeleteKanban = hasPermission(userPermissions, "kanban:delete");
 
   useEffect(() => {
     const fetchKanbans = async () => {
@@ -173,7 +180,24 @@ export default function KanbanListPage() {
     }
   };
 
+  const handleDeleteKanban = async (kanban: KanbanListItem) => {
+    if (!confirm(`Excluir o Kanban "${kanban.titulo}"? Essa acao remove todas as tarefas.`)) return;
+    try {
+      await api.delete(`/api/v1/kanban/${kanban.id}`);
+      setKanbans((prev) => prev.filter((item) => item.id !== kanban.id));
+      setTotal((prev) => Math.max(prev - 1, 0));
+    } catch (err) {
+      console.error("Erro ao excluir kanban", err);
+      alert("Nao foi possivel excluir o Kanban. Verifique suas permissoes.");
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const openResponsaveisModal = (kanban: KanbanListItem) => {
+    setSelectedKanban(kanban);
+    setIsResponsaveisOpen(true);
+  };
 
   return (
     <div className="min-h-screen">
@@ -278,6 +302,8 @@ export default function KanbanListPage() {
           >
             {kanbans.map((kanban) => {
               const config = tipoConfig[kanban.tipo];
+              const responsaveis = kanban.responsaveis ?? [];
+              const visibleResponsaveis = responsaveis.slice(0, 3);
               return (
                 <Card key={kanban.id} variant="glass" hoverable className="h-full">
                   <div className="flex items-start justify-between gap-3">
@@ -292,6 +318,27 @@ export default function KanbanListPage() {
                         </div>
                       </div>
                       {kanban.descricao && <p className="text-sm text-slate-300 line-clamp-3">{kanban.descricao}</p>}
+                      {visibleResponsaveis.length > 0 && (
+                        <div className="mt-4 space-y-1 text-xs text-slate-300">
+                          {visibleResponsaveis.map((resp) => (
+                            <div key={resp.userId} className="truncate">
+                              {resp.user?.email ?? "Usuario"}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {responsaveis.length > 3 && (
+                        <button
+                          type="button"
+                          className="mt-2 text-xs text-slate-400 hover:text-white"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            openResponsaveisModal(kanban);
+                          }}
+                        >
+                          Ver mais...
+                        </button>
+                      )}
                     </Link>
                     <div className="flex flex-col gap-2">
                       <button
@@ -310,6 +357,15 @@ export default function KanbanListPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
+                      {canDeleteKanban && (
+                        <button
+                          className="rounded-full p-2 border border-white/10 text-slate-300 hover:border-red-400/50 hover:text-red-300"
+                          onClick={() => handleDeleteKanban(kanban)}
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -380,6 +436,39 @@ export default function KanbanListPage() {
               </Button>
               <Button onClick={saveKanbanTitle}>Salvar</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isResponsaveisOpen} onOpenChange={setIsResponsaveisOpen}>
+        <DialogContent className="bg-slate-900 text-slate-100 max-w-md">
+          <DialogHeader>
+            <DialogTitle>Responsaveis</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {(selectedKanban?.responsaveis ?? []).map((resp) => {
+              const email = resp.user?.email ?? "Usuario";
+              const initials = email.trim().charAt(0).toUpperCase() || "?";
+              return (
+                <div key={resp.userId} className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+                    {resp.user?.profilePhotoUrl ? (
+                      <img
+                        src={resp.user.profilePhotoUrl}
+                        alt={email}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm text-slate-200">{initials}</span>
+                    )}
+                  </div>
+                  <div className="text-sm text-slate-200">{email}</div>
+                </div>
+              );
+            })}
+            {(selectedKanban?.responsaveis ?? []).length === 0 && (
+              <div className="text-sm text-slate-400">Nenhum responsavel definido.</div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

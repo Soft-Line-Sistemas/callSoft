@@ -16,6 +16,7 @@ import {
   Users,
   X,
   Calendar,
+  Trash2,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -24,7 +25,9 @@ import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
+import { hasPermission } from "@/lib/permissions";
 import { Kanban, KanbanSubtarefa, KanbanTarefa, KanbanTipo } from "@/types";
+import { useAuthStore } from "@/store/authStore";
 
 const tipoConfig: Record<KanbanTipo, { label: string; icon: React.ReactNode; bg: string }> = {
   PROJETO: { label: "Projeto", icon: <Layout size={18} />, bg: "from-blue-500 to-indigo-600" },
@@ -54,6 +57,9 @@ const apiInstance = {
     const res = await api.patch(`/api/v1/task/${tarefaId}`, payload);
     return res.data?.data as KanbanTarefa;
   },
+  async deleteTarefa(tarefaId: string) {
+    await api.delete(`/api/v1/task/${tarefaId}`);
+  },
 };
 
 const moveItemBetween = (
@@ -69,6 +75,116 @@ const moveItemBetween = (
   const newDest = [...destArr];
   newDest.splice(destIndex, 0, { ...item, colunaId: destColId });
   return { newSource, newDest, moved: { ...item, colunaId: destColId } };
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  KANBAN_CREATE: "Kanban criado",
+  KANBAN_UPDATE: "Kanban atualizado",
+  KANBAN_DELETE: "Kanban excluido",
+  KANBAN_TASK_CREATE: "Tarefa criada",
+  KANBAN_TASK_UPDATE: "Tarefa atualizada",
+  KANBAN_TASK_MOVE: "Tarefa movida",
+  KANBAN_TASK_DELETE: "Tarefa excluida",
+  KANBAN_COMMENT_ADD: "Comentario adicionado",
+  KANBAN_SUBTASK_CREATE: "Subtarefa criada",
+  KANBAN_SUBTASK_UPDATE: "Subtarefa atualizada",
+  KANBAN_SUBTASK_DELETE: "Subtarefa excluida",
+  KANBAN_RESPONSAVEL_ADD: "Responsavel adicionado",
+  KANBAN_RESPONSAVEL_REMOVE: "Responsavel removido",
+  KANBAN_SCHEDULE_TASK_CREATE: "Agenda: tarefa criada",
+  KANBAN_SCHEDULE_TASK_UPDATE: "Agenda: tarefa atualizada",
+  KANBAN_SCHEDULE_TASK_DELETE: "Agenda: tarefa excluida",
+};
+
+const toLabel = (value?: string | null) => (value ? `"${value}"` : "");
+
+const formatDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString();
+};
+
+const truncate = (value: string, max = 80) => {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 3)}...`;
+};
+
+const parseDetails = (raw?: string | null) => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const formatLogDetails = (action: string, details: Record<string, any> | null, kanban: Kanban | null) => {
+  if (!details) return "-";
+
+  const colLabel = details.colunaId && kanban?.colunas?.find((c) => c.id === details.colunaId)?.titulo;
+  const dataInicio = formatDate(details.dataInicio);
+  const dataFim = formatDate(details.dataFim);
+
+  switch (action) {
+    case "KANBAN_CREATE":
+      return [details.titulo ? `Kanban ${toLabel(details.titulo)}` : "", details.tipo ? `(${details.tipo})` : ""]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || "-";
+    case "KANBAN_UPDATE": {
+      const parts = [];
+      if (details.titulo) parts.push(`Titulo: ${toLabel(details.titulo)}`);
+      if (details.descricao) parts.push(`Descricao: ${toLabel(details.descricao)}`);
+      if (typeof details.pinned === "boolean") parts.push(details.pinned ? "Fixado" : "Desafixado");
+      return parts.join(" • ") || "-";
+    }
+    case "KANBAN_TASK_CREATE":
+    case "KANBAN_TASK_DELETE":
+      return details.titulo ? `Tarefa ${toLabel(details.titulo)}` : "-";
+    case "KANBAN_TASK_MOVE":
+      return `Para coluna ${colLabel ? toLabel(colLabel) : toLabel(details.colunaId) || "-"}`;
+    case "KANBAN_TASK_UPDATE": {
+      const parts = [];
+      if (details.titulo) parts.push(`Titulo: ${toLabel(details.titulo)}`);
+      if (details.descricao) parts.push(`Descricao: ${toLabel(details.descricao)}`);
+      if (details.cor) parts.push(`Cor: ${details.cor}`);
+      if (dataInicio) parts.push(`Inicio: ${dataInicio}`);
+      if (dataFim) parts.push(`Fim: ${dataFim}`);
+      if (details.colunaId) parts.push(`Coluna: ${colLabel ? toLabel(colLabel) : toLabel(details.colunaId)}`);
+      if (details.kanbanId) parts.push(`Kanban: ${toLabel(details.kanbanId)}`);
+      return parts.join(" • ") || "-";
+    }
+    case "KANBAN_COMMENT_ADD":
+      return details.conteudo ? `Comentario: "${truncate(String(details.conteudo))}"` : "-";
+    case "KANBAN_SUBTASK_CREATE":
+      return details.conteudo ? `Subtarefa ${toLabel(details.conteudo)}` : "-";
+    case "KANBAN_SUBTASK_UPDATE":
+      if (typeof details.concluido === "boolean") {
+        return details.concluido ? "Subtarefa concluida" : "Subtarefa reaberta";
+      }
+      return details.subtaskId ? `Subtarefa ${toLabel(details.subtaskId)}` : "-";
+    case "KANBAN_SUBTASK_DELETE":
+      return details.subtaskId ? `Subtarefa ${toLabel(details.subtaskId)}` : "-";
+    case "KANBAN_RESPONSAVEL_ADD":
+    case "KANBAN_RESPONSAVEL_REMOVE":
+      return details.userId ? `Usuario ${toLabel(details.userId)}` : "-";
+    case "KANBAN_SCHEDULE_TASK_CREATE":
+    case "KANBAN_SCHEDULE_TASK_UPDATE": {
+      const parts = [];
+      if (details.titulo) parts.push(`Tarefa ${toLabel(details.titulo)}`);
+      if (dataInicio) parts.push(`Inicio: ${dataInicio}`);
+      if (dataFim) parts.push(`Fim: ${dataFim}`);
+      return parts.join(" • ") || "-";
+    }
+    case "KANBAN_SCHEDULE_TASK_DELETE":
+      return details.titulo ? `Tarefa ${toLabel(details.titulo)}` : "-";
+    case "KANBAN_DELETE":
+      return details.titulo ? `Kanban ${toLabel(details.titulo)}` : "-";
+    default:
+      return "-";
+  }
 };
 
 export default function KanbanPage() {
@@ -105,6 +221,8 @@ export default function KanbanPage() {
   const [logsTotal, setLogsTotal] = useState(0);
   const [logsLoading, setLogsLoading] = useState(false);
   const logsPageSize = 10;
+  const userPermissions = useAuthStore((state) => state.user?.permissions);
+  const canDeleteTask = hasPermission(userPermissions, "kanban:delete");
 
   const tipoLabel = useMemo(() => {
     const tipo = kanban?.tipo ?? "PROJETO";
@@ -338,6 +456,32 @@ export default function KanbanPage() {
     setOpenTask(null);
   };
 
+  const handleDeleteTask = async () => {
+    if (!openTask) return;
+    const label = openTask.titulo ? `"${openTask.titulo}"` : "esta tarefa";
+    if (!confirm(`Excluir ${label}? Essa acao nao pode ser desfeita.`)) return;
+    setSaving(true);
+    try {
+      await apiInstance.deleteTarefa(openTask.id);
+      setKanban((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          colunas: prev.colunas.map((c) => ({
+            ...c,
+            tarefas: c.tarefas.filter((t) => t.id !== openTask.id),
+          })),
+        };
+      });
+      setOpenTask(null);
+    } catch (err) {
+      console.error("deleteTarefa error", err);
+      alert("Nao foi possivel excluir a tarefa. Verifique suas permissoes.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   async function addResponsavel(tarefaId: string, userId: string) {
     const res = await api.post(`/api/v1/task/${tarefaId}/responsavel`, { userId });
     return res.data?.data;
@@ -378,9 +522,9 @@ export default function KanbanPage() {
               >
                 <CalendarDays className="mr-2 h-4 w-4" /> Agenda
               </Button>
-              <Button variant="outline" onClick={() => setIsUsersModalOpen(true)}>
+              {/* <Button variant="outline" onClick={() => setIsUsersModalOpen(true)}>
                 <Users className="mr-2 h-4 w-4" /> Responsaveis
-              </Button>
+              </Button> */}
               <Button
                 variant="gradient"
                 onClick={() => {
@@ -548,16 +692,23 @@ export default function KanbanPage() {
                 <div className="px-4 py-6 text-sm text-slate-400">Nenhum registro encontrado.</div>
               )}
               {!logsLoading &&
-                logs.map((log) => (
-                  <div key={log.id} className="grid grid-cols-4 gap-2 border-t border-white/10 px-4 py-3 text-sm text-slate-200">
-                    <span>{new Date(log.createdAt).toLocaleString()}</span>
-                    <span>{log.actorEmail ?? "Sistema"}</span>
-                    <span>{log.action}</span>
-                    <span className="text-slate-400 line-clamp-2">
-                      {log.details ? log.details : "-"}
-                    </span>
-                  </div>
-                ))}
+                logs.map((log) => {
+                  const details = parseDetails(log.details);
+                  const actionLabel = ACTION_LABELS[log.action] ?? log.action;
+                  const friendlyDetails = details
+                    ? formatLogDetails(log.action, details, kanban)
+                    : log.details || "-";
+                  return (
+                    <div key={log.id} className="grid grid-cols-4 gap-2 border-t border-white/10 px-4 py-3 text-sm text-slate-200">
+                      <span>{new Date(log.createdAt).toLocaleString()}</span>
+                      <span>{log.actorEmail ?? "Sistema"}</span>
+                      <span>{actionLabel}</span>
+                      <span className="text-slate-400 line-clamp-2">
+                        {friendlyDetails}
+                      </span>
+                    </div>
+                  );
+                })}
             </div>
 
             <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
@@ -597,9 +748,22 @@ export default function KanbanPage() {
                   <h3 className="text-xl font-semibold text-white">{openTask.titulo}</h3>
                   <p className="text-xs text-slate-500 mt-1">ID: {openTask.id}</p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={closeTaskPanel}>
-                  <X />
-                </Button>
+                <div className="flex items-center gap-2">
+                  {canDeleteTask && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="border-red-400/40 text-red-300 hover:text-red-200"
+                      onClick={handleDeleteTask}
+                      title="Excluir tarefa"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon" onClick={closeTaskPanel}>
+                    <X />
+                  </Button>
+                </div>
               </div>
 
               <div className="mt-6 space-y-6">
@@ -822,6 +986,11 @@ export default function KanbanPage() {
                 </div>
 
                 <div className="flex justify-end gap-2">
+                  {canDeleteTask && (
+                    <Button variant="outline" className="text-red-300 border-red-400/40" onClick={handleDeleteTask}>
+                      Excluir tarefa
+                    </Button>
+                  )}
                   <Button variant="outline" onClick={closeTaskPanel}>
                     Fechar
                   </Button>

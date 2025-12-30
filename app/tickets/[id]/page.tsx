@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, type TicketStatus } from "@/lib/api";
@@ -9,10 +9,12 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MessageCircle, Plus, Edit } from "lucide-react";
+import { ArrowLeft, MessageCircle, Plus, Edit, FileText, FileSpreadsheet, Eye, Send } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { EditTicketModal } from "@/components/modals/EditTicketModal";
 import { TicketChat } from "@/components/features/TicketChat";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { downloadBlob } from "@/lib/download";
 
 type TicketHistoryItem = {
   id: number;
@@ -51,6 +53,48 @@ type TicketDetail = {
   }>;
 };
 
+type CotacaoDetail = {
+  id: string;
+  numero: number;
+  status: string;
+  valorTotal: number | null;
+  descontoGlobal: number | null;
+  descontoTipo: string | null;
+  prazoEntregaDias: number | null;
+  dataPrevistaEntrega: string | null;
+  dataExpiracao: string | null;
+  observacoes: string | null;
+  fornecedor: { id: string; nome: string; pais: string };
+  itens: Array<{
+    id: string;
+    descricao: string;
+    quantidade: number;
+    unidade: string;
+    precoUnitario: number | null;
+    precoTotal: number | null;
+  }>;
+};
+
+const COTACAO_STATUS_OPTIONS = [
+  "RASCUNHO",
+  "ENVIADA",
+  "RESPONDIDA",
+  "APROVADA",
+  "REJEITADA",
+  "EXPIRADA",
+  "CANCELADA",
+] as const;
+
+const ALLOWED_COTACAO_TRANSITIONS: Record<string, string[]> = {
+  RASCUNHO: ["ENVIADA", "CANCELADA"],
+  ENVIADA: ["RESPONDIDA", "EXPIRADA", "CANCELADA"],
+  RESPONDIDA: ["APROVADA", "REJEITADA", "EXPIRADA"],
+  REJEITADA: ["APROVADA"],
+  APROVADA: [],
+  EXPIRADA: ["ENVIADA"],
+  CANCELADA: [],
+};
+
 function statusBadgeVariant(status: TicketStatus) {
   switch (status) {
     case "CONCLUIDO":
@@ -77,6 +121,13 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const { addNotification } = useNotificationStore();
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCotacaoDialogOpen, setIsCotacaoDialogOpen] = useState(false);
+  const [selectedCotacaoId, setSelectedCotacaoId] = useState<string | null>(null);
+  const [cotacaoStatus, setCotacaoStatus] = useState<string>("");
+  const [cotacaoObservacao, setCotacaoObservacao] = useState("");
+  const [cotacaoMotivo, setCotacaoMotivo] = useState("");
+  const [isUpdatingCotacaoStatus, setIsUpdatingCotacaoStatus] = useState(false);
+  const [isSendingCotacao, setIsSendingCotacao] = useState(false);
 
   const { data: ticket, isLoading, refetch } = useQuery<TicketDetail>({
     queryKey: ["ticket-detail", params.id],
@@ -85,6 +136,21 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       return res.data.data;
     },
   });
+
+  const { data: cotacaoDetail, isLoading: isLoadingCotacao, refetch: refetchCotacao } = useQuery<CotacaoDetail>({
+    queryKey: ["cotacao-detail", selectedCotacaoId],
+    enabled: Boolean(selectedCotacaoId && isCotacaoDialogOpen),
+    queryFn: async () => {
+      const res = await api.get(`/api/v1/cotacoes/${selectedCotacaoId}`);
+      return res.data.data;
+    },
+  });
+
+  useEffect(() => {
+    if (cotacaoDetail?.status) {
+      setCotacaoStatus(cotacaoDetail.status);
+    }
+  }, [cotacaoDetail?.status]);
 
   const whatsappUrl = useMemo(() => {
     const digits = ticket?.contatoWpp?.replace(/\D/g, "");
@@ -140,6 +206,109 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     }
   };
 
+  const handleDownloadCotacao = async (id: string, numero: number, type: "pdf" | "xlsx") => {
+    try {
+      const res = await api.get(`/api/v1/cotacoes/${id}/${type}`, {
+        responseType: "blob",
+      });
+      downloadBlob(res.data, `cotacao-${numero}.${type}`);
+    } catch (error: any) {
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao baixar a cotação.",
+        type: "error",
+        category: "system",
+      });
+    }
+  };
+
+  const openCotacaoDialog = (cotacaoId: string, status: string) => {
+    setSelectedCotacaoId(cotacaoId);
+    setCotacaoStatus(status);
+    setCotacaoObservacao("");
+    setCotacaoMotivo("");
+    setIsCotacaoDialogOpen(true);
+  };
+
+  const updateCotacaoStatus = async () => {
+    if (!selectedCotacaoId || !cotacaoStatus) return;
+    setIsUpdatingCotacaoStatus(true);
+    try {
+      await api.post(`/api/v1/cotacoes/${selectedCotacaoId}/status`, {
+        status: cotacaoStatus,
+        observacao: cotacaoObservacao || undefined,
+        motivo: cotacaoStatus === "REJEITADA" ? cotacaoMotivo || undefined : undefined,
+      });
+      addNotification({
+        title: "Status atualizado",
+        message: "Status da cotação atualizado com sucesso.",
+        type: "success",
+        category: "system",
+      });
+      await refetch();
+      setIsCotacaoDialogOpen(false);
+    } catch (error: any) {
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao atualizar status da cotação.",
+        type: "error",
+        category: "system",
+      });
+    } finally {
+      setIsUpdatingCotacaoStatus(false);
+    }
+  };
+
+  const handleSendCotacao = async () => {
+    if (!ticket || !cotacaoDetail) return;
+    const canSend = (ALLOWED_COTACAO_TRANSITIONS[cotacaoDetail.status] ?? []).includes("ENVIADA");
+    if (!canSend) {
+      addNotification({
+        title: "Status inválido",
+        message: `Não é possível enviar uma cotação em status ${cotacaoDetail.status}.`,
+        type: "error",
+        category: "system",
+      });
+      return;
+    }
+
+    setIsSendingCotacao(true);
+    try {
+      await api.post(`/api/v1/cotacoes/${cotacaoDetail.id}/status`, {
+        status: "ENVIADA",
+        observacao: "Cotação enviada via chat",
+      });
+
+      const valor = cotacaoDetail.valorTotal != null
+        ? cotacaoDetail.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+        : "--";
+      const prazo = cotacaoDetail.prazoEntregaDias != null ? `${cotacaoDetail.prazoEntregaDias} dias` : "--";
+
+      await api.post(`/api/v1/tickets/${ticket.id}/messages`, {
+        message: `Cotação #${cotacaoDetail.numero} enviada.\nValor: ${valor}\nPrazo: ${prazo}`,
+        isInternal: false,
+      });
+
+      addNotification({
+        title: "Cotação enviada",
+        message: "A cotação foi enviada pelo chat e o status foi atualizado.",
+        type: "success",
+        category: "system",
+      });
+      await refetch();
+      await refetchCotacao();
+    } catch (error: any) {
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao enviar a cotação.",
+        type: "error",
+        category: "system",
+      });
+    } finally {
+      setIsSendingCotacao(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <Sidebar />
@@ -179,9 +348,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                           <MessageCircle className="h-4 w-4 text-green-400" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" onClick={() => router.push(`/tickets/${ticket.id}/quotes/new`)} title="Nova cotação">
-                        <Plus className="h-4 w-4" />
-                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -286,8 +452,16 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
 
               <div className="space-y-6">
                 <Card variant="glass">
-                  <CardHeader>
+                  <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle>Cotações</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`/tickets/${ticket.id}/quotes/new`)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nova cotação
+                    </Button>
                   </CardHeader>
                   <CardContent>
                     {ticket.cotacoes?.length ? (
@@ -300,6 +474,29 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                             <p className="text-xs text-slate-400">
                               Valor: {c.valorTotal != null ? c.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "--"}
                             </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadCotacao(c.id, c.numero, "pdf")}
+                              >
+                                <FileText className="h-4 w-4 mr-2" /> PDF
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadCotacao(c.id, c.numero, "xlsx")}
+                              >
+                                <FileSpreadsheet className="h-4 w-4 mr-2" /> XLSX
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openCotacaoDialog(c.id, c.status)}
+                              >
+                                <Eye className="h-4 w-4 mr-2" /> Detalhes
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -322,6 +519,139 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
           onSave={handleSaveTicket}
         />
       )}
+
+      <Dialog open={isCotacaoDialogOpen} onOpenChange={setIsCotacaoDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes da Cotação</DialogTitle>
+          </DialogHeader>
+          {isLoadingCotacao ? (
+            <div className="text-slate-400">Carregando cotação...</div>
+          ) : !cotacaoDetail ? (
+            <div className="text-slate-400">Cotação não encontrada.</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-slate-400">Número</p>
+                  <p className="text-slate-200">#{cotacaoDetail.numero}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Fornecedor</p>
+                  <p className="text-slate-200">{cotacaoDetail.fornecedor?.nome ?? "--"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Status</p>
+                  <p className="text-slate-200">{cotacaoDetail.status}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Valor total</p>
+                  <p className="text-slate-200">
+                    {cotacaoDetail.valorTotal != null
+                      ? cotacaoDetail.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                      : "--"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Prazo (dias)</p>
+                  <p className="text-slate-200">{cotacaoDetail.prazoEntregaDias ?? "--"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Entrega prevista</p>
+                  <p className="text-slate-200">
+                    {cotacaoDetail.dataPrevistaEntrega
+                      ? new Date(cotacaoDetail.dataPrevistaEntrega).toLocaleDateString("pt-BR")
+                      : "--"}
+                  </p>
+                </div>
+              </div>
+
+              {cotacaoDetail.observacoes && (
+                <div>
+                  <p className="text-sm text-slate-400">Observações</p>
+                  <p className="text-sm text-slate-200 whitespace-pre-wrap">{cotacaoDetail.observacoes}</p>
+                </div>
+              )}
+
+              <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                <p className="text-sm text-slate-300 mb-2">Itens</p>
+                <div className="space-y-2">
+                  {cotacaoDetail.itens.map((item) => (
+                    <div key={item.id} className="text-xs text-slate-200">
+                      <span className="font-medium">{item.descricao}</span>
+                      <span className="text-slate-400"> • {item.quantidade} {item.unidade}</span>
+                      {item.precoTotal != null && (
+                        <span className="text-slate-400">
+                          {" "}• {item.precoTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
+                <p className="text-sm text-slate-300">Atualizar status</p>
+                <select
+                  className="w-full rounded-lg bg-slate-900/50 border border-slate-700 p-2 text-slate-100 text-sm"
+                  value={cotacaoStatus}
+                  onChange={(event) => setCotacaoStatus(event.target.value)}
+                >
+                  {COTACAO_STATUS_OPTIONS.map((status) => {
+                    const current = cotacaoDetail.status;
+                    const allowed = ALLOWED_COTACAO_TRANSITIONS[current] ?? [];
+                    const isDisabled = status !== current && !allowed.includes(status);
+                    return (
+                      <option key={status} value={status} disabled={isDisabled}>
+                        {status.replace(/_/g, " ")}
+                      </option>
+                    );
+                  })}
+                </select>
+                {cotacaoStatus === "REJEITADA" && (
+                  <textarea
+                    value={cotacaoMotivo}
+                    onChange={(event) => setCotacaoMotivo(event.target.value)}
+                    rows={2}
+                    className="w-full rounded-lg bg-slate-900/50 border border-slate-700 p-2 text-slate-100 text-sm"
+                    placeholder="Motivo da rejeição"
+                  />
+                )}
+                <textarea
+                  value={cotacaoObservacao}
+                  onChange={(event) => setCotacaoObservacao(event.target.value)}
+                  rows={2}
+                  className="w-full rounded-lg bg-slate-900/50 border border-slate-700 p-2 text-slate-100 text-sm"
+                  placeholder="Observação (opcional)"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    variant="gradient"
+                    onClick={updateCotacaoStatus}
+                    disabled={isUpdatingCotacaoStatus || (cotacaoStatus === "REJEITADA" && !cotacaoMotivo.trim())}
+                  >
+                    {isUpdatingCotacaoStatus ? "Atualizando..." : "Atualizar status"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleSendCotacao}
+                  disabled={
+                    isSendingCotacao ||
+                    !(ALLOWED_COTACAO_TRANSITIONS[cotacaoDetail.status] ?? []).includes("ENVIADA")
+                  }
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {isSendingCotacao ? "Enviando..." : "Enviar cotação no chat"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
