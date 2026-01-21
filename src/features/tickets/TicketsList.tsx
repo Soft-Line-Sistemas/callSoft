@@ -6,8 +6,8 @@ export function TicketsList() {
   const { data } = useQuery<{ tickets: Ticket[] }>({
     queryKey: ["tickets"],
     queryFn: async () => {
-      const res = await api.get("/tickets");
-      return { tickets: res.data as Ticket[] };
+      const res = await api.get("/api/v1/tickets", { params: { page: 1, pageSize: 10 } });
+      return { tickets: (res.data.data.items ?? []) as Ticket[] };
     }
   });
   return (
@@ -16,8 +16,8 @@ export function TicketsList() {
         <thead>
           <tr>
             <th className="text-left">Pedido</th>
-            <th className="text-left">Assunto</th>
-            <th className="text-left">Solicitante</th>
+            <th className="text-left">Empresa</th>
+            <th className="text-left">WhatsApp</th>
             <th className="text-left">Status</th>
             <th className="text-left">Data</th>
           </tr>
@@ -25,10 +25,10 @@ export function TicketsList() {
         <tbody>
           {(data?.tickets ?? []).map((t) => (
             <tr key={t.id}>
-              <td>#{t.numero}</td>
-              <td>{t.subject}</td>
-              <td>{t.clientName}</td>
-              <td>{t.status}</td>
+              <td>#{t.pedido}</td>
+              <td>{t.empresa ?? "--"}</td>
+              <td>{t.contatoWpp}</td>
+              <td>{t.status.replace(/_/g, " ")}</td>
               <td>{new Date(t.createdAt).toLocaleDateString()}</td>
             </tr>
           ))}

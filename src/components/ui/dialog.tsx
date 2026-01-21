@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 // ======================================================
 // DIALOG (WRAPPER)
@@ -27,17 +28,24 @@ export function Dialog({
 
   if (!open) return null;
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-[9999] bg-black/60 overflow-y-auto"
       onClick={() => onOpenChange(false)}
     >
       {/* CONTEÚDO */}
-      <div onClick={(e) => e.stopPropagation()}>
-        {children}
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div onClick={(e) => e.stopPropagation()}>
+          {children}
+        </div>
       </div>
     </div>
   );
+
+  // Renderiza o modal usando portal para garantir que fique acima de tudo
+  return typeof document !== 'undefined'
+    ? createPortal(modalContent, document.body)
+    : null;
 }
 
 // ======================================================
@@ -68,4 +76,12 @@ export function DialogHeader({ children }: { children: React.ReactNode }) {
 
 export function DialogTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-lg font-semibold">{children}</h2>;
+}
+
+// ======================================================
+// DESCRIÇÃO
+// ======================================================
+
+export function DialogDescription({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-slate-400 mt-2">{children}</p>;
 }

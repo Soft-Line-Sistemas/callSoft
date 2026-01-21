@@ -1,5 +1,5 @@
 "use client";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 
 interface StatusData {
     name: string;
@@ -21,17 +21,16 @@ const STATUS_COLORS: Record<string, string> = {
     Cancelado: "#ef4444",       // Vermelho - Danger
 };
 
-// Dados mock para desenvolvimento
-const mockData: StatusData[] = [
-    { name: "Solicitado", value: 45, color: STATUS_COLORS.Solicitado },
-    { name: "Em Atendimento", value: 28, color: STATUS_COLORS["Em Atendimento"] },
-    { name: "Pendente Atendimento", value: 12, color: STATUS_COLORS["Pendente Atendimento"] },
-    { name: "Concluido", value: 89, color: STATUS_COLORS.Concluido },
-    { name: "Cancelado", value: 5, color: STATUS_COLORS.Cancelado },
-];
-
-export function StatusPieChart({ data = mockData }: StatusPieChartProps) {
+export function StatusPieChart({ data = [] }: StatusPieChartProps) {
     const total = data.reduce((acc, item) => acc + item.value, 0);
+
+    if (data.length === 0) {
+        return (
+            <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                Sem dados para exibir
+            </div>
+        );
+    }
 
     return (
         <ResponsiveContainer width="100%" height="100%">
@@ -45,9 +44,7 @@ export function StatusPieChart({ data = mockData }: StatusPieChartProps) {
                     paddingAngle={2}
                     dataKey="value"
                     labelLine={false}
-                    label={({ name, percent }) =>
-                        `${name ?? ''} (${((percent ?? 0) * 100).toFixed(0)}%)`
-                    }
+                    label={({ percent }) => `${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                     {data.map((entry, index) => (
                         <Cell
@@ -57,18 +54,6 @@ export function StatusPieChart({ data = mockData }: StatusPieChartProps) {
                         />
                     ))}
                 </Pie>
-                <Tooltip
-                    contentStyle={{
-                        backgroundColor: "rgba(15, 23, 42, 0.9)",
-                        border: "1px solid rgba(255, 255, 255, 0.1)",
-                        borderRadius: "8px",
-                        color: "#fff",
-                    }}
-                    formatter={(value: number) => [
-                        `${value} tickets (${((value / total) * 100).toFixed(1)}%)`,
-                        "",
-                    ]}
-                />
                 <Legend
                     wrapperStyle={{ color: "#94a3b8" }}
                     formatter={(value) => (

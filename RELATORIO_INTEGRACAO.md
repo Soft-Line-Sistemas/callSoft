@@ -63,7 +63,7 @@ Estes endpoints parecem fugir do padrão `/api/v1/...` ou são legados.
 
 | Funcionalidade | Endpoint | Método | Arquivo | Observação |
 |---|---|---|---|---|
-| Listar Usuários | `/usuarios` | `GET` | `app/settings/criar-usuario/page.tsx` | **Fora do padrão v1** |
+| Listar Usuários | `/api/v1/usuarios` | `GET` | `app/settings/criar-usuario/page.tsx` | OK |
 | Upload Foto Usuário | `/api/v1/upload/usuario` | `POST` | `app/settings/criar-usuario/page.tsx` | OK |
 | Criar Empresa | `/empresas` | `POST` | `app/settings/criar-empresa/page.tsx` | **Fora do padrão v1** |
 
@@ -77,5 +77,5 @@ Estes endpoints parecem fugir do padrão `/api/v1/...` ou são legados.
 
 ## 📝 Observações Técnicas
 1.  **Padronização**: A maioria dos endpoints segue o padrão `/api/v1/...`.
-2.  **Inconsistências**: Os módulos de criação de usuário e empresa usam rotas raiz (`/usuarios`, `/empresas`) que podem falhar se o backend esperar `/api/v1/...`. Recomenda-se revisão.
+2.  **Inconsistências**: O módulo de criação de empresa usa rota raiz (`/empresas`) que pode falhar se o backend esperar `/api/v1/...`. Recomenda-se revisão.
 3.  **React Query**: O projeto utiliza amplamente `useQuery` e `useMutation` para gerenciamento de estado do servidor, o que é uma boa prática.

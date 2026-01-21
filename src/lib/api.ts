@@ -1,6 +1,7 @@
 import axios from "axios";
+import { clearAuthToken } from "./auth";
 
-const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:64231";
 
 export const api = axios.create({ baseURL });
 
@@ -15,50 +16,42 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (typeof window !== "undefined") {
+      const status = error?.response?.status;
+      const code = error?.response?.data?.error?.code;
+      const pathname = window.location?.pathname ?? "";
+
+      if ((status === 401 || code === "AUTH_001") && !pathname.startsWith("/login") && !pathname.startsWith("/password-reset")) {
+        clearAuthToken();
+        window.location.replace("/login?expired=true");
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export type TicketStatus =
+  | "SOLICITADO"
+  | "PENDENTE_ATENDIMENTO"
+  | "EM_ATENDIMENTO"
+  | "CONCLUIDO"
+  | "CANCELADO";
+
 export interface TicketMetrics {
-  periodo: {
-    from: string;
-    to: string;
-  };
-  totais: {
+  statusCounts: Record<TicketStatus, number>;
+  volumeByDate: Array<{
+    date: string;
     total: number;
-    novos: number;
-    abertos: number;
-    emAndamento: number;
-    resolvidos: number;
-    fechados: number;
-    cancelados: number;
-  };
-  porPrioridade: {
-    BAIXA: number;
-    MEDIA: number;
-    ALTA: number;
-    URGENTE: number;
-  };
-  porCategoria: Record<string, number>;
-  tempos: {
-    tempoMedioResolucao: number | null;
-    tempoMedioPrimeiraResposta: number | null;
-  };
-  taxas: {
-    taxaResolucao: number;
-    taxaCancelamento: number;
-  };
-  distribuicao: {
-    porUsuario: Array<{
-      userId: string;
-      userName: string;
-      total: number;
-      resolvidos: number;
-      emAndamento: number;
-    }>;
-    porDia: Array<{
-      data: string;
-      total: number;
-      novos: number;
-      resolvidos: number;
-      emAndamento: number;
-    }>;
+  }>;
+  averageTimeToFirstAttendanceMinutes: number | null;
+  averageTimeInStatusMinutes: Record<TicketStatus, number>;
+  technical: {
+    averageResponseTimeMs: number | null;
+    failuresPerMinute: number;
   };
 }
 
@@ -74,24 +67,23 @@ export interface CreateTicketRequest {
 
 export interface Ticket {
   id: string;
-  numero: number;
-  clientName: string;
-  clientEmail: string;
-  clientPhone: string;
-  subject: string;
-  description: string;
-  status: "NOVO" | "ABERTO" | "EM_ANDAMENTO" | "AGUARDANDO_CLIENTE" | "AGUARDANDO_FORNECEDOR" | "RESOLVIDO" | "FECHADO" | "CANCELADO";
-  priority: "BAIXA" | "MEDIA" | "ALTA" | "URGENTE";
-  category: string;
-  assignedToId?: string | null;
-  assignedTo?: {
+  pedido: number;
+  contatoWpp: string;
+  solicitacao: string;
+  status: TicketStatus;
+  horaProposta: string | null;
+  empresa?: string | null;
+  responsavel?: string | null;
+  prioridade?: string | null;
+  cliente?: {
     id: string;
-    name: string;
-    email: string;
+    nome: string;
+    whatsappNumber: string | null;
+    email: string | null;
+    telefone: string | null;
   } | null;
   createdAt: string;
   updatedAt: string;
-  resolvedAt?: string | null;
 }
 
 export interface TicketListResponse {
@@ -100,15 +92,16 @@ export interface TicketListResponse {
     items: Ticket[];
     total: number;
     page: number;
-    limit: number;
-    pages: number;
+    pageSize: number;
   };
 }
 
 export interface StatusTransitionRequest {
-  status: "NOVO" | "ABERTO" | "EM_ANDAMENTO" | "AGUARDANDO_CLIENTE" | "AGUARDANDO_FORNECEDOR" | "RESOLVIDO" | "FECHADO" | "CANCELADO";
+  status: TicketStatus;
   observacao?: string;
-  resolucao?: string;
+  motivo?: string;
+  responsavel?: string;
+  horaProposta?: string | null;
 }
 
 // --- Novos Schemas ---
@@ -125,7 +118,8 @@ export interface ItemCotacao {
 
 export interface CreateCotacaoRequest {
   ticketId: string;
-  fornecedorId: string;
+  fornecedorId?: string;
+  empresaId?: number;
   itens: ItemCotacao[];
   descontoGlobal?: number;
   descontoTipo?: "PERCENTUAL" | "VALOR_ABSOLUTO";
