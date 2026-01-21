@@ -189,10 +189,9 @@ export default function LoginPage() {
 
                     {/* Header Section */}
                     <div className="text-center mb-10 relative">
-                        <div className="inline-block mb-3 relative">
-                             <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 rounded-full"></div>
-                             <h1 className="relative text-5xl font-black tracking-tighter bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent drop-shadow-sm">
-                                CALLSOFT
+                        <div className="mb-2">
+                            <h1 className="relative text-4xl font-black tracking-tighter bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent drop-shadow-sm">
+                                INTERSERVICE USA
                             </h1>
                         </div>
                         <p className="text-blue-400/80 text-xs font-bold uppercase tracking-[0.2em]">

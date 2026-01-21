@@ -146,7 +146,7 @@ export default function DashboardPage() {
     ] : [];
 
     const recentTickets = recentTicketsData?.items || [];
-    const tenantLabel = authUser?.tenantId ?? "CALLSOFT";
+    const tenantLabel = authUser?.tenantId ?? "INTERSERVICE USA";
 
     function capitalizeFirstLetter(text: string) {
         if (!text) return text;

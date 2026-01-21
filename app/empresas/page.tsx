@@ -25,7 +25,7 @@ export default function EmpresasPage() {
         queryFn: () => empresasApi.list({ search: searchText || undefined }),
     });
 
-    const tenantLabel = authUser?.tenantId ?? "CALLSOFT";
+    const tenantLabel = authUser?.tenantId ?? "INTERSERVICE USA";
 
     function capitalizeFirstLetter(text: string) {
         if (!text) return text;
