@@ -168,7 +168,7 @@ export default function FirstLoginPage() {
           </CardContent>
 
           <CardFooter className="justify-center pt-2 pb-6">
-            <p className="text-xs text-slate-500">© {new Date().getFullYear()} CallSoft.</p>
+            <p className="text-xs text-slate-500">© {new Date().getFullYear()} Interservice USA.</p>
           </CardFooter>
         </Card>
       </div>

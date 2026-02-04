@@ -17,6 +17,9 @@ interface EditTicketModalProps {
     responsavel?: string | null;
     prioridade?: string | null;
     contatoWpp?: string | null;
+    cliente?: {
+      nome: string;
+    } | null;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -29,7 +32,7 @@ export function EditTicketModal({ ticket, isOpen, onClose, onSave }: EditTicketM
   const [empresa, setEmpresa] = useState(ticket.empresa ?? "");
   const [responsavel, setResponsavel] = useState(ticket.responsavel ?? "");
   const [prioridade, setPrioridade] = useState(ticket.prioridade ?? "");
-  const [contatoNome, setContatoNome] = useState("");
+  const [contatoNome, setContatoNome] = useState(ticket.cliente?.nome ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: empresas = [], isLoading: isLoadingEmpresas } = useQuery<EmpresaResponse[]>({
     queryKey: ["empresas"],
@@ -80,8 +83,11 @@ export function EditTicketModal({ ticket, isOpen, onClose, onSave }: EditTicketM
     setEmpresa(ticket.empresa ?? "");
     setResponsavel(ticket.responsavel ?? "");
     setPrioridade(ticket.prioridade ?? "");
-    setContatoNome(cliente?.nome ?? "");
-  }, [isOpen, ticket.empresa, ticket.responsavel, ticket.prioridade]);
+    // Initialize with cliente.nome from props if available, otherwise wait for async fetch or fallback to empty
+    if (ticket.cliente?.nome) {
+        setContatoNome(ticket.cliente.nome);
+    }
+  }, [isOpen, ticket.empresa, ticket.responsavel, ticket.prioridade, ticket.cliente]);
 
   useEffect(() => {
     if (!isOpen) return;

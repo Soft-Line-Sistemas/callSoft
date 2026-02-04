@@ -173,7 +173,7 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex bg-slate-950 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
             {/* Background Decor */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
                 <NeonLinesBackground />
@@ -181,143 +181,126 @@ export default function LoginPage() {
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: "1s" }} />
             </div>
 
-            {/* Left Side - Brand / Info */}
-            <div className="hidden lg:flex lg:w-1/2 relative z-10 flex-col justify-center px-16 text-white">
-                <div className="max-w-lg animate-slide-up">
-                    <div className="mb-8 inline-block">
-                         <h1 className="text-6xl font-extrabold bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">
-                            CALLSOFT
-                        </h1>
-                        <div className="h-1 w-24 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full mt-2" />
+            <div className="relative z-10 w-full max-w-[420px] p-4">
+                <div className="backdrop-blur-2xl bg-slate-900/60 border border-white/10 rounded-3xl shadow-2xl p-8 md:p-10 relative overflow-hidden group">
+                    
+                    {/* Top Gradient Line */}
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+
+                    {/* Header Section */}
+                    <div className="text-center mb-10 relative">
+                        <div className="mb-2">
+                            <h1 className="relative text-4xl font-black tracking-tighter bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent drop-shadow-sm">
+                                INTERSERVICE USA
+                            </h1>
+                        </div>
+                        <p className="text-blue-400/80 text-xs font-bold uppercase tracking-[0.2em]">
+                            Gestão Inteligente
+                        </p>
+                    </div>
+
+                    {/* Login Form */}
+                    <form onSubmit={handleSubmit} className="space-y-8">
+                        
+                        {/* Email Input */}
+                        <div className="relative group">
+                            <Mail className="absolute left-0 bottom-3 text-slate-500 transition-colors duration-300 group-focus-within:text-blue-400 h-5 w-5" />
+                            <input
+                                type="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="block py-2.5 pl-8 w-full text-sm text-slate-100 bg-transparent border-0 border-b border-slate-700 appearance-none focus:outline-none focus:ring-0 focus:border-blue-500 peer transition-colors duration-300 placeholder-transparent"
+                                placeholder="Email"
+                            />
+                            <label className="absolute text-sm text-slate-500 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-8 peer-focus:text-blue-400 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:left-8 peer-focus:scale-75 peer-focus:-translate-y-6">
+                                Email Corporativo
+                            </label>
+                        </div>
+
+                        {/* Password Input */}
+                        <div className="relative group">
+                            <Lock className="absolute left-0 bottom-3 text-slate-500 transition-colors duration-300 group-focus-within:text-blue-400 h-5 w-5" />
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="block py-2.5 pl-8 pr-8 w-full text-sm text-slate-100 bg-transparent border-0 border-b border-slate-700 appearance-none focus:outline-none focus:ring-0 focus:border-blue-500 peer transition-colors duration-300 placeholder-transparent"
+                                placeholder="Senha"
+                            />
+                            <label className="absolute text-sm text-slate-500 duration-300 transform -translate-y-6 scale-75 top-3 -z-10 origin-[0] peer-focus:left-8 peer-focus:text-blue-400 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:left-8 peer-focus:scale-75 peer-focus:-translate-y-6">
+                                Senha
+                            </label>
+                            
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-0 bottom-3 text-slate-500 hover:text-white transition-colors"
+                            >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                        </div>
+
+                        {/* Forgot Password Link */}
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setIsResetOpen(true)}
+                                className="text-xs text-slate-400 hover:text-blue-400 transition-colors hover:underline decoration-blue-400/50 underline-offset-4"
+                            >
+                                Esqueceu sua senha?
+                            </button>
+                        </div>
+
+                        {/* Submit Button */}
+                        <Button
+                            type="submit"
+                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-6 rounded-xl shadow-lg shadow-blue-500/20 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-blue-500/40 relative overflow-hidden group"
+                            disabled={isLoading}
+                        >
+                            <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-700 -skew-x-12 -translate-x-full" />
+                            {isLoading ? (
+                                <div className="flex items-center justify-center gap-2">
+                                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>Entrando...</span>
+                                </div>
+                            ) : (
+                                "ACESSAR SISTEMA"
+                            )}
+                        </Button>
+                    </form>
+
+                    {/* Features Footer */}
+                    <div className="mt-10 pt-6 border-t border-white/5">
+                        <div className="flex justify-between px-4">
+                            <div className="flex flex-col items-center gap-1 group cursor-default">
+                                <div className="p-2 rounded-lg bg-white/5 text-purple-400 group-hover:bg-purple-500/20 group-hover:scale-110 transition-all duration-300">
+                                    <span className="text-lg">🚀</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider group-hover:text-purple-300 transition-colors">Rápido</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 group cursor-default">
+                                <div className="p-2 rounded-lg bg-white/5 text-blue-400 group-hover:bg-blue-500/20 group-hover:scale-110 transition-all duration-300">
+                                    <span className="text-lg">💬</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider group-hover:text-blue-300 transition-colors">WhatsApp</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 group cursor-default">
+                                <div className="p-2 rounded-lg bg-white/5 text-cyan-400 group-hover:bg-cyan-500/20 group-hover:scale-110 transition-all duration-300">
+                                    <span className="text-lg">📊</span>
+                                </div>
+                                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider group-hover:text-cyan-300 transition-colors">Metrics</span>
+                            </div>
+                        </div>
                     </div>
                     
-                    <h2 className="text-3xl font-bold mb-6 text-slate-100">
-                        Gestão Inteligente de Tickets
-                    </h2>
-                    
-                    <p className="text-lg text-slate-400 mb-10 leading-relaxed">
-                        Centralize seu atendimento, automatize processos e integre com WhatsApp em uma única plataforma moderna e eficiente.
-                    </p>
-
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-4 group">
-                            <div className="h-12 w-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-purple-400 text-xl">🚀</span>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-slate-200">Alta Performance</h3>
-                                <p className="text-sm text-slate-500">Otimizado para agilidade no atendimento</p>
-                            </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-4 group">
-                            <div className="h-12 w-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-blue-400 text-xl">💬</span>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-slate-200">WhatsApp Integrado</h3>
-                                <p className="text-sm text-slate-500">Conecte-se diretamente com seus clientes</p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-4 group">
-                            <div className="h-12 w-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-cyan-400 text-xl">📊</span>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-slate-200">Dashboard em Tempo Real</h3>
-                                <p className="text-sm text-slate-500">Métricas e KPIs atualizados instantaneamente</p>
-                            </div>
-                        </div>
+                    {/* Copyright */}
+                    <div className="mt-8 text-center">
+                        <p className="text-[10px] text-slate-600">
+                            © {new Date().getFullYear()} CallSoft. Todos os direitos reservados.
+                        </p>
                     </div>
-                </div>
-            </div>
-
-            {/* Right Side - Login Form */}
-            <div className="flex-1 flex items-center justify-center p-8 relative z-10">
-                <div className="w-full max-w-md animate-slide-up" style={{ animationDelay: "200ms" }}>
-                    <Card variant="glass-blue" className="border-slate-800/50 shadow-2xl backdrop-blur-xl">
-                        <CardHeader className="pb-2 text-center">
-                            <div className="lg:hidden mb-4">
-                                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                                    CALLSOFT
-                                </h1>
-                            </div>
-                            <CardTitle className="text-2xl text-white">Bem-vindo de volta</CardTitle>
-                            <CardDescription className="text-slate-400">
-                                Acesse sua conta para continuar
-                            </CardDescription>
-                        </CardHeader>
-                        
-                        <CardContent className="pt-6">
-                            <form onSubmit={handleSubmit} className="space-y-5">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-300 ml-1">Email</label>
-                                    <Input
-                                        type="email"
-                                        placeholder="seu@email.com"
-                                        leftIcon={<Mail className="h-4 w-4 text-slate-400" />}
-                                        required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className="bg-slate-900/50 border-slate-700 focus:border-blue-500/50 focus:ring-blue-500/20 transition-all"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-sm font-medium text-slate-300 ml-1">Senha</label>
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsResetOpen(true)}
-                                            className="text-xs text-blue-400 hover:text-blue-300 transition-colors hover:underline"
-                                        >
-                                            Esqueceu a senha?
-                                        </button>
-                                    </div>
-                                    <Input
-                                        type={showPassword ? "text" : "password"}
-                                        placeholder="••••••••"
-                                        leftIcon={<Lock className="h-4 w-4 text-slate-400" />}
-                                        rightIcon={
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="text-slate-400 hover:text-white transition-colors"
-                                            >
-                                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                            </button>
-                                        }
-                                        required
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="bg-slate-900/50 border-slate-700 focus:border-blue-500/50 focus:ring-blue-500/20 transition-all"
-                                    />
-                                </div>
-
-                                <Button
-                                    type="submit"
-                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold py-6 shadow-lg shadow-blue-500/20 transition-all duration-300 transform hover:scale-[1.02]"
-                                    disabled={isLoading}
-                                >
-                                    {isLoading ? (
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            <span>Entrando...</span>
-                                        </div>
-                                    ) : (
-                                        "Acessar Sistema"
-                                    )}
-                                </Button>
-                            </form>
-                        </CardContent>
-                        
-                        <CardFooter className="justify-center pt-2 pb-6">
-                            <p className="text-xs text-slate-500">
-                                © {new Date().getFullYear()} CallSoft. Todos os direitos reservados.
-                            </p>
-                        </CardFooter>
-                    </Card>
                 </div>
             </div>
 

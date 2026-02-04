@@ -29,7 +29,7 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
         ticketId: params.id,
         empresaId: "",
         itens: [
-            { descricao: "", quantidade: 1, unidade: "UN", codigoPeca: "" }
+            { descricao: "", quantidade: 1, unidade: "UN", codigoPeca: "", precoUnitario: 0 }
         ],
         descontoGlobal: 0,
         descontoTipo: "VALOR_ABSOLUTO",
@@ -42,7 +42,7 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
     const addItem = () => {
         setFormData(prev => ({
             ...prev,
-            itens: [...prev.itens, { descricao: "", quantidade: 1, unidade: "UN", codigoPeca: "" }]
+            itens: [...prev.itens, { descricao: "", quantidade: 1, unidade: "UN", codigoPeca: "", precoUnitario: 0 }]
         }));
     };
 
@@ -170,58 +170,73 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
                                 </Button>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {formData.itens.map((item, index) => (
-                                    <div key={index} className="grid grid-cols-12 gap-4 items-end bg-white/5 p-4 rounded-lg border border-white/5">
-                                        <div className="col-span-2">
-                                            <label className="block text-xs text-slate-400 mb-1">Código</label>
-                                            <Input
-                                                value={item.codigoPeca || ""}
-                                                onChange={(e) => updateItem(index, "codigoPeca", e.target.value)}
-                                                placeholder="SKU-123"
-                                            />
-                                        </div>
-                                        <div className="col-span-5">
-                                            <label className="block text-xs text-slate-400 mb-1">Descrição *</label>
-                                            <Input
-                                                value={item.descricao}
-                                                onChange={(e) => updateItem(index, "descricao", e.target.value)}
-                                                placeholder="Descrição do produto/serviço"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <label className="block text-xs text-slate-400 mb-1">Qtd *</label>
-                                            <Input
-                                                type="number"
-                                                min="0.01"
-                                                step="0.01"
-                                                value={item.quantidade}
-                                                onChange={(e) => updateItem(index, "quantidade", parseFloat(e.target.value))}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <label className="block text-xs text-slate-400 mb-1">Unidade</label>
-                                            <Input
-                                                value={item.unidade || "UN"}
-                                                onChange={(e) => updateItem(index, "unidade", e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="col-span-1 flex justify-end">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => removeItem(index)}
-                                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                                                disabled={formData.itens.length === 1}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </CardContent>
+                        {formData.itens.map((item, index) => (
+                          <div key={index} className="grid grid-cols-12 gap-4 items-end bg-white/5 p-4 rounded-lg border border-white/5">
+                            <div className="col-span-2">
+                              <label className="block text-xs text-slate-400 mb-1">Código</label>
+                              <Input
+                                value={item.codigoPeca || ""}
+                                onChange={(e) => updateItem(index, "codigoPeca", e.target.value)}
+                                placeholder="SKU-123"
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <label className="block text-xs text-slate-400 mb-1">Descrição *</label>
+                              <Input
+                                value={item.descricao}
+                                onChange={(e) => updateItem(index, "descricao", e.target.value)}
+                                placeholder="Descrição do produto/serviço"
+                                required
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-xs text-slate-400 mb-1">Qtd *</label>
+                              <Input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={item.quantidade}
+                                onChange={(e) => updateItem(index, "quantidade", parseFloat(e.target.value))}
+                                required
+                              />
+                            </div>
+                            <div className="col-span-1">
+                              <label className="block text-xs text-slate-400 mb-1">Un</label>
+                              <Input
+                                value={item.unidade || "UN"}
+                                onChange={(e) => updateItem(index, "unidade", e.target.value)}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-xs text-slate-400 mb-1">Valor Unit. *</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.precoUnitario}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  updateItem(index, "precoUnitario", val === "" ? "" : parseFloat(val));
+                                }}
+                                placeholder="0.00"
+                                required
+                              />
+                            </div>
+                            <div className="col-span-1 flex justify-end">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeItem(index)}
+                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                disabled={formData.itens.length === 1}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </CardContent>
                         </Card>
 
                         {/* Condições */}

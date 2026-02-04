@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/Input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { Kanban } from "@/types";
+import { useNotificationStore } from "@/store/notificationStore";
 
 interface KanbanTask {
   id: string;
@@ -35,6 +36,7 @@ interface KanbanTask {
 export default function AgendaPage() {
   const params = useParams();
   const usuarioId = params?.id as string | undefined;
+  const { addNotification } = useNotificationStore();
 
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const [loading, setLoading] = useState(false);
@@ -149,7 +151,15 @@ export default function AgendaPage() {
 
     try {
       const colunaId = kanban.colunas[0]?.id;
-      if (!colunaId) return alert("Kanban selecionado nao possui colunas!");
+      if (!colunaId) {
+        addNotification({
+          title: "Erro",
+          message: "Kanban selecionado não possui colunas!",
+          type: "error",
+          category: "system"
+        });
+        return;
+      }
 
       const res = await api.post(`/api/v1/schedule/${usuarioId}/task`, {
         colunaId,
@@ -166,6 +176,12 @@ export default function AgendaPage() {
       setOpenModal(false);
       setNewTaskTitle("");
       setSelectedSlot(null);
+      addNotification({
+        title: "Sucesso",
+        message: "Tarefa criada com sucesso!",
+        type: "success",
+        category: "system"
+      });
     } catch (err) {
       console.error("Erro ao criar task", err);
     }
@@ -188,8 +204,20 @@ export default function AgendaPage() {
       );
       setEditingTask(null);
       setOpenModal(false);
+      addNotification({
+        title: "Sucesso",
+        message: "Tarefa atualizada com sucesso!",
+        type: "success",
+        category: "system"
+      });
     } catch (err) {
       console.error("Erro ao atualizar task", err);
+      addNotification({
+        title: "Erro",
+        message: "Erro ao atualizar tarefa.",
+        type: "error",
+        category: "system"
+      });
     }
   };
 
@@ -203,8 +231,22 @@ export default function AgendaPage() {
         setTasks((prev) =>
           prev.map((t) => (t.id === taskId ? { ...t, dataInicio: startSP, dataFim: endSP } : t))
         );
+        addNotification({
+          title: "Sucesso",
+          message: "Horário da tarefa atualizado!",
+          type: "success",
+          category: "system"
+        });
       })
-      .catch((err) => console.error("Erro ao atualizar horario da task", err));
+      .catch((err) => {
+        console.error("Erro ao atualizar horario da task", err);
+        addNotification({
+          title: "Erro",
+          message: "Falha ao atualizar horário.",
+          type: "error",
+          category: "system"
+        });
+      });
   };
 
   const eventPropGetter = (event: any) => {

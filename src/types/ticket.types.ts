@@ -28,7 +28,10 @@ export enum TicketOrigem {
  */
 export interface Ticket {
   id: string;
-  nome: string;
+  pedido?: number;
+  contatoWpp?: string;
+  solicitacao?: string;
+  nome: string; // Keep for backward compatibility if needed, or map from cliente.nome
   telefone: string;
   descricaoSolicitacao: string;
   origem: TicketOrigem;
@@ -38,6 +41,16 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   cotacoes?: Cotacao[];
+  cliente?: {
+    id: string;
+    nome: string;
+    whatsappNumber: string;
+    email?: string | null;
+    telefone?: string | null;
+  } | null;
+  empresa?: string | null;
+  responsavel?: string | null;
+  prioridade?: string | null;
 }
 
 /**

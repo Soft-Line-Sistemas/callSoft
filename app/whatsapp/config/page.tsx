@@ -172,7 +172,7 @@ export default function WhatsAppConfigPage() {
                                             <Input 
                                                 value={config.botName}
                                                 onChange={(e) => handleChange("botName", e.target.value)}
-                                                placeholder="Ex: CallSoft Bot"
+                                                placeholder="Ex: Interservice Bot"
                                             />
                                         </div>
                                         <div className="space-y-2">

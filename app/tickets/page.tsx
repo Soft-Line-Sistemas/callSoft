@@ -10,9 +10,10 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Filter, Search, Eye, KanbanSquare, Loader2 } from "lucide-react";
+import { Filter, Search, Eye, KanbanSquare, Loader2, MessageCircle, Mail, Pencil } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { CreateTicketModal } from "@/components/modals/CreateTicketModal";
+import { EditTicketModal } from "@/components/modals/EditTicketModal";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 const STATUS_OPTIONS: Array<{ value: TicketStatus | ""; label: string }> = [
@@ -70,6 +71,7 @@ export default function TicketsPage() {
   const [kanbanLoading, setKanbanLoading] = useState(false);
   const [hasLinkedKanban, setHasLinkedKanban] = useState(false);
   const [didSelectKanban, setDidSelectKanban] = useState(false);
+  const [editTicket, setEditTicket] = useState<Ticket | null>(null);
 
   // Debounce do campo de texto para evitar requisições excessivas
   const debouncedText = useDebouncedValue(text, 500);
@@ -316,6 +318,7 @@ export default function TicketsPage() {
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Status</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Prioridade</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Solicitação</th>
+                    <th className="text-left p-4 text-sm font-semibold text-slate-300">Cliente</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Criado</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Ações</th>
                   </tr>
@@ -323,13 +326,13 @@ export default function TicketsPage() {
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-slate-400">
+                      <td colSpan={9} className="p-8 text-center text-slate-400">
                         Carregando tickets...
                       </td>
                     </tr>
                   ) : tickets.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-slate-400">
+                      <td colSpan={9} className="p-8 text-center text-slate-400">
                         Nenhum ticket encontrado.
                       </td>
                     </tr>
@@ -355,6 +358,47 @@ export default function TicketsPage() {
                         <td className="p-4 text-sm text-slate-300 max-w-xs truncate" title={ticket.solicitacao || ""}>
                           {ticket.solicitacao ? ticket.solicitacao : "--"}
                         </td>
+                        <td className="p-4 text-sm text-slate-300">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-white truncate max-w-[150px]" title={ticket.cliente?.nome || ticket.contatoWpp}>
+                              {ticket.cliente?.nome || ticket.contatoWpp || "--"}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditTicket(ticket);
+                                }}
+                                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5 transition-colors"
+                                title="Editar"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              {(ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleWhatsApp(ticket.cliente?.whatsappNumber || ticket.contatoWpp);
+                                  }}
+                                  className="text-green-400 hover:text-green-300 p-1 rounded hover:bg-white/5 transition-colors"
+                                  title="WhatsApp"
+                                >
+                                  <MessageCircle className="h-4 w-4" />
+                                </button>
+                              )}
+                              {ticket.cliente?.email && (
+                                <a
+                                  href={`mailto:${ticket.cliente.email}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-sky-400 hover:text-sky-300 p-1 rounded hover:bg-white/5 transition-colors"
+                                  title={ticket.cliente.email}
+                                >
+                                  <Mail className="h-4 w-4" />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </td>  
                         <td className="p-4 text-sm text-slate-400">
                           {new Date(ticket.createdAt).toLocaleString("pt-BR")}
                         </td>
@@ -401,6 +445,7 @@ export default function TicketsPage() {
             const res = await api.post("/api/v1/tickets", {
               ...payload,
               tenantId: authMe?.tenantId,
+              accessKey: payload.accessKey,
             });
             const ticketId = res.data?.data?.id;
 
@@ -430,6 +475,37 @@ export default function TicketsPage() {
           }
         }}
       />
+
+      {editTicket && (
+        <EditTicketModal
+          ticket={editTicket}
+          isOpen={!!editTicket}
+          onClose={() => setEditTicket(null)}
+          onSave={async (data) => {
+            try {
+              await api.patch(`/api/v1/tickets/${editTicket.id}`, {
+                ...data,
+                tenantId: authMe?.tenantId,
+              });
+              addNotification({
+                title: "Sucesso",
+                message: "Ticket atualizado com sucesso.",
+                type: "success",
+                category: "system",
+              });
+              void refetch();
+            } catch (error: any) {
+              console.error("Erro ao atualizar ticket:", error);
+              addNotification({
+                title: "Erro",
+                message: error?.response?.data?.message || "Falha ao atualizar ticket.",
+                type: "error",
+                category: "system",
+              });
+            }
+          }}
+        />
+      )}
 
       <Dialog
         open={isKanbanModalOpen}

@@ -26,12 +26,17 @@ import {
 export default function ReportsPage() {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const { data: metrics, isLoading } = useQuery<TicketMetrics>({
-    queryKey: ["ticket-metrics"],
+    queryKey: ["ticket-metrics", startDate, endDate],
     queryFn: async () => {
-      const res = await api.get("/api/v1/metrics/tickets");
+      const params: any = {};
+      if (startDate) params.from = startDate;
+      if (endDate) params.to = endDate;
+      const res = await api.get("/api/v1/metrics/tickets", { params });
       return res.data.data;
     },
   });
@@ -143,11 +148,24 @@ export default function ReportsPage() {
               <h1 className="text-3xl font-bold text-white">Relatórios</h1>
               <p className="mt-2 text-slate-400">Análises e métricas do sistema</p>
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline">
-                <Calendar className="h-4 w-4 mr-2" />
-                Último mês
-              </Button>
+            <div className="flex gap-3 items-center">
+              <div className="flex items-center gap-2 bg-white/5 rounded-lg border border-white/10 p-1">
+                 <input 
+                   type="date" 
+                   className="bg-transparent text-slate-200 text-xs px-2 py-1 outline-none"
+                   value={startDate}
+                   onChange={(e) => setStartDate(e.target.value)}
+                   title="Data Inicial"
+                 />
+                 <span className="text-slate-500 text-xs">-</span>
+                 <input 
+                   type="date" 
+                   className="bg-transparent text-slate-200 text-xs px-2 py-1 outline-none"
+                   value={endDate}
+                   onChange={(e) => setEndDate(e.target.value)}
+                   title="Data Final"
+                 />
+              </div>
               <div className="relative" ref={exportMenuRef}>
                 <Button
                   variant="gradient"

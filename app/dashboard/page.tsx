@@ -118,7 +118,7 @@ export default function DashboardPage() {
             variant: "glass-purple" as const,
         },
         {
-            title: "Tempo Médio (min)",
+            title: "Tempo Médio (Horas)",
             value: metricsCurrent?.averageTimeToFirstAttendanceMinutes != null ? Math.round(metricsCurrent.averageTimeToFirstAttendanceMinutes).toString() : "--",
             icon: Clock,
             trend: computeTrend(
@@ -146,7 +146,7 @@ export default function DashboardPage() {
     ] : [];
 
     const recentTickets = recentTicketsData?.items || [];
-    const tenantLabel = authUser?.tenantId ?? "CALLSOFT";
+    const tenantLabel = authUser?.tenantId ?? "INTERSERVICE USA";
 
     function capitalizeFirstLetter(text: string) {
         if (!text) return text;
@@ -289,12 +289,12 @@ export default function DashboardPage() {
                                         <CardTitle>Tendência de Tickets (Últimos 30 dias)</CardTitle>
                                         <p className="text-sm text-slate-400 mt-1">Volume diário de aberturas</p>
                                     </div>
-                                    <select className="bg-slate-800 border-slate-700 text-xs rounded px-2 py-1 text-slate-400">
+                                    {/* <select className="bg-slate-800 border-slate-700 text-xs rounded px-2 py-1 text-slate-400">
                                         <option>Automático</option>
                                         <option>Manual</option>
                                         <option>Híbrido</option>
                                         <option>Todos</option>
-                                    </select>
+                                    </select> */}
                                 </CardHeader>
                                 <CardContent>
                                     <div className="h-[350px] w-full">

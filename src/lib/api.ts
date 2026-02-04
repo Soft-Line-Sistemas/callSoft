@@ -75,6 +75,13 @@ export interface Ticket {
   empresa?: string | null;
   responsavel?: string | null;
   prioridade?: string | null;
+  cliente?: {
+    id: string;
+    nome: string;
+    whatsappNumber: string | null;
+    email: string | null;
+    telefone: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

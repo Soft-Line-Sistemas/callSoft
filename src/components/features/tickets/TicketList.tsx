@@ -33,9 +33,10 @@ export function TicketList({ data, isLoading, isFetching, onPageChange, onRowCli
         <table className="w-full">
           <thead className="border-b border-white/10 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
             <tr>
-              <th className="px-4 py-3">Ticket</th>
+              <th className="px-4 py-3">Ticket / Solicitação</th>
+              <th className="px-4 py-3">Solicitante</th>
               <th className="px-4 py-3">Contato</th>
-              <th className="px-4 py-3">Origem</th>
+              <th className="px-4 py-3">Empresa</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Criado em</th>
               <th className="px-4 py-3">Ações</th>
@@ -45,7 +46,7 @@ export function TicketList({ data, isLoading, isFetching, onPageChange, onRowCli
             {isLoading &&
               Array.from({ length: 5 }).map((_, index) => (
                 <tr key={`skeleton-${index}`} className="animate-pulse">
-                  <td colSpan={6} className="p-4">
+                  <td colSpan={7} className="p-4">
                     <div className="h-6 w-full rounded bg-white/5" />
                   </td>
                 </tr>
@@ -53,7 +54,7 @@ export function TicketList({ data, isLoading, isFetching, onPageChange, onRowCli
 
             {!isLoading && tickets.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
                   Nenhum ticket encontrado com os filtros selecionados.
                 </td>
               </tr>
@@ -67,14 +68,20 @@ export function TicketList({ data, isLoading, isFetching, onPageChange, onRowCli
                   onClick={() => onRowClick(ticket.id)}
                 >
                   <td className="px-4 py-4">
-                    <div className="font-semibold text-white">{ticket.nome}</div>
-                    <p className="text-xs text-slate-400 line-clamp-1">{ticket.descricaoSolicitacao}</p>
+                    <div className="font-semibold text-white">#{ticket.pedido || ticket.id.substring(0, 8)}</div>
+                    <p className="text-xs text-slate-400 line-clamp-1">{ticket.solicitacao || ticket.descricaoSolicitacao}</p>
                   </td>
                   <td className="px-4 py-4">
-                    <div className="text-sm">{ticket.telefone || '—'}</div>
+                    <div className="font-medium text-white">{ticket.cliente?.nome || ticket.nome || 'Não identificado'}</div>
                   </td>
-                  <td className="px-4 py-4 capitalize text-slate-300">
-                    {ticket.origem.replace(/_/g, ' ').toLowerCase()}
+                  <td className="px-4 py-4">
+                     <div className="flex flex-col gap-1">
+                        <span className="text-xs text-slate-300">{ticket.cliente?.whatsappNumber || ticket.cliente?.telefone || ticket.telefone || '—'}</span>
+                        {ticket.cliente?.email && <span className="text-xs text-slate-400">{ticket.cliente.email}</span>}
+                     </div>
+                  </td>
+                  <td className="px-4 py-4 text-slate-300">
+                    {ticket.empresa || '—'}
                   </td>
                   <td className="px-4 py-4">
                     <Badge variant={statusVariant[ticket.status]} className="uppercase">
@@ -87,6 +94,8 @@ export function TicketList({ data, isLoading, isFetching, onPageChange, onRowCli
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
                         })
                       : '—'}
                   </td>

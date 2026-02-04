@@ -17,6 +17,7 @@ interface CreateTicketModalProps {
     empresa?: string;
     responsavel?: string;
     prioridade?: string;
+    accessKey?: string;
   }) => Promise<void>;
 }
 
@@ -39,6 +40,7 @@ export function CreateTicketModal({ isOpen, onClose, onCreate }: CreateTicketMod
   const [empresa, setEmpresa] = useState("");
   const [responsavel, setResponsavel] = useState("");
   const [prioridade, setPrioridade] = useState("");
+  const [accessKey, setAccessKey] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: empresas = [], isLoading: isLoadingEmpresas } = useQuery<EmpresaResponse[]>({
@@ -80,6 +82,7 @@ export function CreateTicketModal({ isOpen, onClose, onCreate }: CreateTicketMod
         empresa: empresa || undefined,
         responsavel: responsavel || undefined,
         prioridade: prioridade || undefined,
+        accessKey: accessKey || undefined,
       });
       setTelefone("");
       setSolicitacao("");
@@ -107,15 +110,30 @@ export function CreateTicketModal({ isOpen, onClose, onCreate }: CreateTicketMod
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Telefone (WhatsApp)</label>
-            <Input
-              type="text"
-              value={telefone}
-              onChange={(e) => setTelefone(formatPhone(e.target.value))}
-              placeholder="(71) 99999-9999"
-              disabled={isSubmitting}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Telefone *</label>
+              <Input
+                type="text"
+                value={telefone}
+                onChange={(e) => setTelefone(formatPhone(e.target.value))}
+                placeholder="(11) 99999-9999"
+                disabled={isSubmitting}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Chave de Acesso *</label>
+              <Input
+                type="text"
+                value={accessKey}
+                onChange={(e) => setAccessKey(e.target.value)}
+                placeholder="Digite a chave de segurança"
+                disabled={isSubmitting}
+                required
+              />
+            </div>
           </div>
 
           <div>

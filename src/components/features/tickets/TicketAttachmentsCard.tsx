@@ -106,11 +106,12 @@ export const TicketAttachmentsCard = ({ ticketId }: { ticketId: string }) => {
         <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="w-full space-y-2">
-              <p className="text-sm text-slate-300">Enviar novos arquivos</p>
+              <p className="text-sm text-slate-300">Enviar novos arquivos (Img, Vídeo, Doc, Txt - Máx 10MB)</p>
               <Input
                 key={inputResetKey}
                 type="file"
                 multiple
+                accept="image/*,video/*,application/pdf,text/plain,.csv,.doc,.docx,.xls,.xlsx"
                 onChange={(event) => handleFileSelection(event.target.files)}
               />
               {selectedFilesSummary.count > 0 && (

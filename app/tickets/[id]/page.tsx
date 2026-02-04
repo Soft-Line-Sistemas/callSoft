@@ -38,6 +38,13 @@ type TicketDetail = {
   empresa?: string | null;
   responsavel?: string | null;
   prioridade?: string | null;
+  cliente?: {
+    id: string;
+    nome: string;
+    whatsappNumber: string;
+    email?: string | null;
+    telefone?: string | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
   historico: TicketHistoryItem[];
@@ -285,7 +292,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       const prazo = cotacaoDetail.prazoEntregaDias != null ? `${cotacaoDetail.prazoEntregaDias} dias` : "--";
 
       await api.post(`/api/v1/tickets/${ticket.id}/messages`, {
-        message: `Cotação #${cotacaoDetail.numero} enviada.\nValor: ${valor}\nPrazo: ${prazo}`,
+        message: `Cotação #${ticket.pedido} enviada.\nValor: ${valor}\nPrazo: ${prazo}`,
         isInternal: false,
       });
 
@@ -352,20 +359,40 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-slate-400">Contato WhatsApp</p>
-                        <p className="text-slate-200">{ticket.contatoWpp}</p>
+                      <div className="col-span-1 md:col-span-2 border-b border-white/10 pb-4 mb-2">
+                        <h3 className="text-slate-300 font-medium mb-3 flex items-center gap-2">
+                           <span className="p-1 rounded bg-white/5">👤</span> Dados do Solicitante
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-slate-400 text-xs uppercase tracking-wider">Nome</p>
+                                <p className="text-slate-100 font-medium text-lg">{ticket.cliente?.nome || "Não identificado"}</p>
+                            </div>
+                            <div>
+                                <p className="text-slate-400 text-xs uppercase tracking-wider">Telefone / WhatsApp</p>
+                                <p className="text-slate-200">{ticket.cliente?.whatsappNumber || ticket.cliente?.telefone || ticket.contatoWpp}</p>
+                            </div>
+                            <div>
+                                <p className="text-slate-400 text-xs uppercase tracking-wider">Email</p>
+                                <p className="text-slate-200">{ticket.cliente?.email || "--"}</p>
+                            </div>
+                            <div>
+                                <p className="text-slate-400 text-xs uppercase tracking-wider">Empresa</p>
+                                <p className="text-slate-200">{ticket.empresa || "--"}</p>
+                            </div>
+                        </div>
                       </div>
+
                       <div>
-                        <p className="text-slate-400">Responsável</p>
+                        <p className="text-slate-400 text-xs uppercase tracking-wider">Responsável</p>
                         <p className="text-slate-200">{ticket.responsavel ?? "--"}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400">Prioridade</p>
+                        <p className="text-slate-400 text-xs uppercase tracking-wider">Prioridade</p>
                         <p className="text-slate-200">{ticket.prioridade ?? "--"}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400">Criado em</p>
+                        <p className="text-slate-400 text-xs uppercase tracking-wider">Criado em</p>
                         <p className="text-slate-200">{new Date(ticket.createdAt).toLocaleString("pt-BR")}</p>
                       </div>
                     </div>
