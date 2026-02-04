@@ -1,0 +1,27 @@
+name: CD Frontend
+
+on:
+  push:
+    branches:
+      - master # merge em producao
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            cd /dev/callSoft
+            git fetch --all
+            git pull --ff-only origin master
+            npm ci
+            npm run build
+            pm2 restart callsoft-web
