@@ -1,47 +1,80 @@
 "use client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/button";
 import { Smartphone, Clock, CheckCircle2, XCircle, RefreshCw, MessageCircle, LogOut } from "lucide-react";
-import { useWhatsAppMessages, useWhatsAppQrStatus, useDisconnectWhatsApp } from "@/hooks/whatsapp";
-import { useHealth } from "@/hooks/useHealth";
+import { useWhatsAppMessages, useWhatsAppQrStatus, useDisconnectWhatsApp, useRefreshWhatsAppSession } from "@/hooks/whatsapp";
 import { WhatsAppMessageStatus, type WhatsAppMessage } from "@/types/whatsapp.types";
 
 export default function WhatsAppContatosPage() {
   const [manualQrText, setManualQrText] = useState<string>("");
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const { data: qrStatus, isLoading: isQrLoading } = useWhatsAppQrStatus();
+  const refreshSessionMutation = useRefreshWhatsAppSession();
   const disconnectMutation = useDisconnectWhatsApp();
   const { data: messageData, isLoading: isMessagesLoading } = useWhatsAppMessages({
     page: 1,
     pageSize: 10,
   });
-  const { data: healthStatus } = useHealth();
 
   const qrText = manualQrText || qrStatus?.qr || "";
   const qrReady = qrStatus?.ready ?? false;
   const qrAvailable = qrStatus?.qrAvailable ?? false;
   const messages = messageData?.items ?? [];
 
-  const whatsappStatus = healthStatus?.services?.whatsapp ?? "unknown";
+  useEffect(() => {
+    let cancelled = false;
+
+    const buildQr = async () => {
+      if (!qrText || qrReady) {
+        setQrDataUrl("");
+        return;
+      }
+
+      try {
+        const QRCode = await import("qrcode");
+        const dataUrl = await QRCode.toDataURL(qrText, {
+          width: 200,
+          margin: 1,
+        });
+        if (!cancelled) {
+          setQrDataUrl(dataUrl);
+        }
+      } catch {
+        if (!cancelled) {
+          setQrDataUrl("");
+        }
+      }
+    };
+
+    void buildQr();
+    return () => {
+      cancelled = true;
+    };
+  }, [qrText, qrReady]);
+
+  const statusMessage = qrStatus?.message ?? "";
+  const isPairingPending = !qrReady && qrAvailable;
+  const isAuthenticatedPending = !qrReady && !qrAvailable && statusMessage.includes("Sessão autenticada");
   const statusMeta = {
     up: {
       label: "Serviço Ativo",
-      description: healthStatus?.details?.whatsapp ?? "Sessão WhatsApp disponível.",
+      description: "Sessão WhatsApp conectada para este tenant.",
       className: "bg-green-500/10 border-green-500/20 text-green-400",
       dotClassName: "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]",
     },
+    pairing: {
+      label: "Aguardando pareamento",
+      description: "QR Code gerado. Escaneie no celular para concluir a conexão.",
+      className: "bg-blue-500/10 border-blue-500/20 text-blue-400",
+      dotClassName: "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]",
+    },
     down: {
       label: "Serviço Instável",
-      description: healthStatus?.details?.whatsapp ?? "Aguardando conexão do WhatsApp.",
+      description: statusMessage || "Aguardando conexão do WhatsApp.",
       className: "bg-amber-500/10 border-amber-500/20 text-amber-400",
       dotClassName: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]",
-    },
-    disabled: {
-      label: "Serviço Desabilitado",
-      description: healthStatus?.details?.whatsapp ?? "WhatsApp desativado na configuração.",
-      className: "bg-slate-600/20 border-slate-600/30 text-slate-300",
-      dotClassName: "bg-slate-500",
     },
     unknown: {
       label: "Status Indisponível",
@@ -50,7 +83,17 @@ export default function WhatsAppContatosPage() {
       dotClassName: "bg-slate-500",
     },
   };
-  const statusInfo = statusMeta[whatsappStatus as keyof typeof statusMeta] ?? statusMeta.unknown;
+  const statusInfo = qrReady
+    ? statusMeta.up
+    : isPairingPending
+      ? statusMeta.pairing
+      : isAuthenticatedPending
+        ? {
+            ...statusMeta.down,
+            label: "Sessão autenticada",
+            description: statusMessage,
+          }
+        : statusMeta.down;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("pt-BR", {
@@ -99,7 +142,7 @@ export default function WhatsAppContatosPage() {
                     <img
                       alt="QR Code WhatsApp"
                       className="w-full h-full object-contain"
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrText)}`}
+                      src={qrDataUrl || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrText)}`}
                     />
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-slate-400">
@@ -121,6 +164,11 @@ export default function WhatsAppContatosPage() {
                   <p className="text-slate-400 text-sm leading-relaxed">
                     Abra o WhatsApp no seu celular, vá em <span className="text-white font-medium">Configurações {'>'} Aparelhos conectados</span> e escaneie o código ao lado.
                   </p>
+                  {!qrReady && (
+                    <p className="text-xs text-amber-300 mt-2">
+                      {qrStatus?.message}
+                    </p>
+                  )}
                 </div>
                 
                 {!qrReady && !qrAvailable && (
@@ -128,6 +176,15 @@ export default function WhatsAppContatosPage() {
                     <p className="text-slate-400 text-xs">
                       Caso o QR Code não carregue automaticamente:
                     </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => refreshSessionMutation.mutate()}
+                      disabled={refreshSessionMutation.isPending}
+                    >
+                      {refreshSessionMutation.isPending ? "Gerando QR..." : "Gerar novo QR"}
+                    </Button>
                     <Input
                       placeholder="Cole o código do QR aqui"
                       value={manualQrText}
