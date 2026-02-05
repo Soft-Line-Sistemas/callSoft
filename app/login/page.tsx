@@ -17,6 +17,7 @@ export default function LoginPage() {
     const router = useRouter();
     const { addNotification } = useNotificationStore();
     
+    const [tenantTitle, setTenantTitle] = useState("INTERSERVICE USA");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -38,6 +39,10 @@ export default function LoginPage() {
         const storedEmail = localStorage.getItem("firstLoginEmail");
         if (storedEmail) {
             setFirstLoginEmail(storedEmail);
+        }
+        const storedTenantTitle = localStorage.getItem("tenantTitle");
+        if (storedTenantTitle) {
+            setTenantTitle(storedTenantTitle);
         }
     }, []);
 
@@ -74,6 +79,13 @@ export default function LoginPage() {
             
             if (success && data?.token) {
                 setAuthToken(data.token);
+                if (isSoftline) {
+                    localStorage.setItem("tenantTitle", "SOFT LINE");
+                    setTenantTitle("SOFT LINE");
+                } else {
+                    localStorage.setItem("tenantTitle", "INTERSERVICE USA");
+                    setTenantTitle("INTERSERVICE USA");
+                }
                 
                 addNotification({
                     title: "Bem-vindo!",
@@ -121,6 +133,8 @@ export default function LoginPage() {
             }
 
             setAuthToken(data.token);
+            localStorage.setItem("tenantTitle", "SOFT LINE");
+            setTenantTitle("SOFT LINE");
             addNotification({
                 title: "Primeiro acesso concluído",
                 message: "Conta criada com sucesso. Você já está logado.",
@@ -191,7 +205,7 @@ export default function LoginPage() {
                     <div className="text-center mb-10 relative">
                         <div className="mb-2">
                             <h1 className="relative text-4xl font-black tracking-tighter bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent drop-shadow-sm">
-                                INTERSERVICE USA
+                                {tenantTitle}
                             </h1>
                         </div>
                         <p className="text-blue-400/80 text-xs font-bold uppercase tracking-[0.2em]">
