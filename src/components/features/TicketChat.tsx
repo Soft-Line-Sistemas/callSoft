@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
-import { Send, Lock, UserPlus, Zap, User } from "lucide-react";
+import { Send, Lock, UserPlus, Zap, User, ImagePlus, Clock } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { CreateClienteModal, type ClienteFormData } from "@/components/modals/CreateClienteModal";
 
@@ -36,13 +36,73 @@ interface TicketChatProps {
   canSend?: boolean;
 }
 
+const IMAGE_MESSAGE_PREFIX = "[[image:";
+const IMAGE_MESSAGE_SUFFIX = "]]";
+
+function getImageAttachmentId(message: string): string | null {
+  const trimmed = message.trim();
+  if (!trimmed.startsWith(IMAGE_MESSAGE_PREFIX) || !trimmed.endsWith(IMAGE_MESSAGE_SUFFIX)) {
+    return null;
+  }
+  const inner = trimmed.slice(IMAGE_MESSAGE_PREFIX.length, -IMAGE_MESSAGE_SUFFIX.length).trim();
+  return inner.length > 0 ? inner : null;
+}
+
+function ChatImage({ ticketId, attachmentId }: { ticketId: string; attachmentId: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+
+    api
+      .get(`/api/v1/tickets/${ticketId}/attachments/${attachmentId}/download`, {
+        responseType: "blob",
+      })
+      .then((res) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(res.data);
+        setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError(true);
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [attachmentId, ticketId]);
+
+  if (error) {
+    return <p className="text-sm text-amber-400">Imagem indisponível.</p>;
+  }
+
+  if (!url) {
+    return <p className="text-sm text-slate-400">Carregando imagem...</p>;
+  }
+
+  return (
+    <img
+      src={url}
+      alt="Imagem enviada"
+      className="max-w-full max-h-48 w-auto rounded-md border border-slate-600 object-contain"
+    />
+  );
+}
+
 export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketChatProps) {
   const [newMessage, setNewMessage] = useState("");
   const [isInternal, setIsInternal] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
   const hasLoadedMessagesRef = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { addNotification } = useNotificationStore();
 
@@ -92,6 +152,61 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
       addNotification({
         title: "Erro",
         message: error?.response?.data?.message || "Falha ao enviar mensagem.",
+        type: "error",
+        category: "system",
+      });
+    },
+  });
+
+  const sendImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("isInternal", String(isInternal));
+      const res = await api.post(`/api/v1/tickets/${ticketId}/messages`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-messages", ticketId] });
+      addNotification({
+        title: "Imagem enviada",
+        message: "Sua imagem foi enviada com sucesso.",
+        type: "success",
+        category: "system",
+      });
+    },
+    onError: (error: any) => {
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao enviar imagem.",
+        type: "error",
+        category: "system",
+      });
+    },
+  });
+
+  const releaseBotMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post(`/api/v1/tickets/${ticketId}/messages`, {
+        releaseBot: true,
+      });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket-messages", ticketId] });
+      addNotification({
+        title: "Modo espera acionado",
+        message: "O cliente foi avisado e o robô foi liberado.",
+        type: "success",
+        category: "system",
+      });
+    },
+    onError: (error: any) => {
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao acionar modo espera.",
         type: "error",
         category: "system",
       });
@@ -166,6 +281,14 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
     }
   };
 
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canSend) return;
+    const file = event.target.files?.[0];
+    if (!file) return;
+    sendImageMutation.mutate(file);
+    event.target.value = "";
+  };
+
   useEffect(() => {
     if (messages.length === 0) {
       lastMessageIdRef.current = null;
@@ -174,14 +297,21 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
 
     const lastMessage = messages[messages.length - 1];
 
+    const scrollToBottom = (behavior: ScrollBehavior) => {
+      const container = messagesContainerRef.current;
+      if (!container) return;
+      container.scrollTo({ top: container.scrollHeight, behavior });
+    };
+
     if (!hasLoadedMessagesRef.current) {
       hasLoadedMessagesRef.current = true;
       lastMessageIdRef.current = lastMessage.id;
+      requestAnimationFrame(() => scrollToBottom("auto"));
       return;
     }
 
     if (lastMessage.id !== lastMessageIdRef.current && lastMessage.senderType !== "USER") {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      requestAnimationFrame(() => scrollToBottom("smooth"));
     }
 
     lastMessageIdRef.current = lastMessage.id;
@@ -261,7 +391,10 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-dark/30 rounded-lg">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-dark/30 rounded-lg"
+      >
         {isLoading ? (
           <div className="text-center text-slate-400 py-8">Carregando mensagens...</div>
         ) : messages.length === 0 ? (
@@ -292,15 +425,22 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
                   {new Date(msg.createdAt).toLocaleString("pt-BR")}
                 </span>
               </div>
-              <p className="text-sm text-slate-200 whitespace-pre-wrap">{msg.message}</p>
+              {(() => {
+                const attachmentId = getImageAttachmentId(msg.message);
+                if (attachmentId) {
+                  return <ChatImage ticketId={ticketId} attachmentId={attachmentId} />;
+                }
+                return (
+                  <p className="text-sm text-slate-200 whitespace-pre-wrap">{msg.message}</p>
+                );
+              })()}
             </div>
           ))
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       <div className="mt-4 space-y-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-400">
             <input
               type="checkbox"
@@ -312,8 +452,36 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
             <Lock className="h-3 w-3" />
             Mensagem interna (não visível ao cliente)
           </label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => releaseBotMutation.mutate()}
+            disabled={!canSend || releaseBotMutation.isPending}
+            className="flex items-center gap-2"
+          >
+            <Clock className="h-4 w-4" />
+            {releaseBotMutation.isPending ? "Enviando..." : "Em espera"}
+          </Button>
         </div>
         <div className="flex gap-2">
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/png,image/jpeg"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => imageInputRef.current?.click()}
+            disabled={!canSend || sendImageMutation.isPending}
+            title="Enviar imagem"
+          >
+            <ImagePlus className="h-4 w-4" />
+          </Button>
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
