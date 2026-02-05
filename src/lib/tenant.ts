@@ -21,7 +21,7 @@ function normalizeDomain(domain: string): string {
  * Priority:
  * 1) `NEXT_PUBLIC_TENANT_ID` (fixed single-tenant)
  * 2) `NEXT_PUBLIC_TENANT_DOMAIN_MAP` (JSON mapping)
- * 3) fallback: first label of the email domain (e.g. intercity.com -> intercity)
+ * 3) fallback: first label of the email domain (e.g. Interservice.com -> Interservice)
  */
 export function resolveTenantIdFromEmail(email: string): string | null {
   const fixedTenantId = process.env.NEXT_PUBLIC_TENANT_ID?.trim();

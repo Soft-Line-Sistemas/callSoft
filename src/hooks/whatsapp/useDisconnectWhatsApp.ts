@@ -6,7 +6,9 @@ export const useDisconnectWhatsApp = () => {
 
   return useMutation<{ success: boolean; message: string }, Error>({
     mutationFn: () => whatsappApi.disconnect(),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Fetch latest QR state after backend reset; avoid resetting twice.
+      await whatsappApi.getQrStatus().catch(() => undefined);
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'qr'] });
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'messages'] });
       queryClient.invalidateQueries({ queryKey: ['health'] });

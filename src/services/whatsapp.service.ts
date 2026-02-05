@@ -51,7 +51,10 @@ export const whatsappApi = {
    */
   getQrStatus: async (params: { refresh?: boolean } = {}): Promise<QRCodeResponse> => {
     const response = await api.get<QRCodeResponse>('/api/v1/whatsapp/qr', {
-      params: params.refresh ? { refresh: '1' } : undefined,
+      params: {
+        ...(params.refresh ? { refresh: '1' } : {}),
+        _ts: Date.now(),
+      },
     });
     return response.data;
   },
