@@ -15,6 +15,7 @@ import { EditTicketModal } from "@/components/modals/EditTicketModal";
 import { TicketChat } from "@/components/features/TicketChat";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { downloadBlob } from "@/lib/download";
+import { isEmailContact } from "@/lib/contact";
 
 type TicketHistoryItem = {
   id: number;
@@ -133,6 +134,8 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const [cotacaoStatus, setCotacaoStatus] = useState<string>("");
   const [cotacaoObservacao, setCotacaoObservacao] = useState("");
   const [cotacaoMotivo, setCotacaoMotivo] = useState("");
+  const [cotacaoCurrency, setCotacaoCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
+  const [cotacaoLocale, setCotacaoLocale] = useState<"pt-BR" | "en-US">("pt-BR");
   const [isUpdatingCotacaoStatus, setIsUpdatingCotacaoStatus] = useState(false);
   const [isSendingCotacao, setIsSendingCotacao] = useState(false);
 
@@ -159,10 +162,13 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     }
   }, [cotacaoDetail?.status]);
 
+  const isEmailTicket = useMemo(() => isEmailContact(ticket?.contatoWpp), [ticket?.contatoWpp]);
+
   const whatsappUrl = useMemo(() => {
+    if (isEmailTicket) return null;
     const digits = ticket?.contatoWpp?.replace(/\D/g, "");
     return digits ? `https://wa.me/${digits}` : null;
-  }, [ticket?.contatoWpp]);
+  }, [ticket?.contatoWpp, isEmailTicket]);
 
   const canTransitionTo = (current: TicketStatus, next: TicketStatus) =>
     (ALLOWED_STATUS_TRANSITIONS[current] ?? []).includes(next);
@@ -283,22 +289,64 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     try {
       await api.post(`/api/v1/cotacoes/${cotacaoDetail.id}/status`, {
         status: "ENVIADA",
-        observacao: "Cotação enviada via chat",
+        observacao: "Proposta comercial enviada via chat",
       });
 
-      const valor = cotacaoDetail.valorTotal != null
-        ? cotacaoDetail.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-        : "--";
-      const prazo = cotacaoDetail.prazoEntregaDias != null ? `${cotacaoDetail.prazoEntregaDias} dias` : "--";
+      const formatCurrency = (value: number | null | undefined) =>
+        value != null ? value.toLocaleString(cotacaoLocale, { style: "currency", currency: cotacaoCurrency }) : "--";
+
+      const formatDate = (value?: string | null) =>
+        value ? new Date(value).toLocaleDateString(cotacaoLocale) : "--";
+
+      const prazoDias = cotacaoDetail.prazoEntregaDias != null ? cotacaoDetail.prazoEntregaDias : null;
+      const prazo =
+        prazoDias == null
+          ? "--"
+          : cotacaoLocale === "pt-BR"
+            ? `${prazoDias} dias`
+            : `${prazoDias} days`;
+
+      const valor = formatCurrency(cotacaoDetail.valorTotal);
+      const entregaPrevista = formatDate(cotacaoDetail.dataPrevistaEntrega);
+      const fornecedor = cotacaoDetail.fornecedor?.nome ?? "--";
+      const itensQtd = cotacaoDetail.itens?.length ?? 0;
+      const observacoes = cotacaoDetail.observacoes?.trim();
+
+      const message =
+        cotacaoLocale === "pt-BR"
+          ? [
+              `Proposta comercial — Ticket #${ticket.pedido}`,
+              `Ticket: #${ticket.pedido}`,
+              `Fornecedor: ${fornecedor}`,
+              `Valor total (${cotacaoCurrency}): ${valor}`,
+              `Prazo de entrega: ${prazo}`,
+              `Entrega prevista: ${entregaPrevista}`,
+              `Itens: ${itensQtd}`,
+              observacoes ? `Observações: ${observacoes}` : null,
+            ]
+              .filter(Boolean)
+              .join("\n")
+          : [
+              `Commercial proposal — Ticket #${ticket.pedido}`,
+              `Ticket: #${ticket.pedido}`,
+              `Supplier: ${fornecedor}`,
+              `Total (${cotacaoCurrency}): ${valor}`,
+              `Delivery lead time: ${prazo}`,
+              `Estimated delivery: ${entregaPrevista}`,
+              `Items: ${itensQtd}`,
+              observacoes ? `Notes: ${observacoes}` : null,
+            ]
+              .filter(Boolean)
+              .join("\n");
 
       await api.post(`/api/v1/tickets/${ticket.id}/messages`, {
-        message: `Cotação #${ticket.pedido} enviada.\nValor: ${valor}\nPrazo: ${prazo}`,
+        message,
         isInternal: false,
       });
 
       addNotification({
-        title: "Cotação enviada",
-        message: "A cotação foi enviada pelo chat e o status foi atualizado.",
+        title: "Proposta enviada",
+        message: "A proposta comercial foi enviada pelo chat e o status foi atualizado.",
         type: "success",
         category: "system",
       });
@@ -369,8 +417,14 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                                 <p className="text-slate-100 font-medium text-lg">{ticket.cliente?.nome || "Não identificado"}</p>
                             </div>
                             <div>
-                                <p className="text-slate-400 text-xs uppercase tracking-wider">Telefone / WhatsApp</p>
-                                <p className="text-slate-200">{ticket.cliente?.whatsappNumber || ticket.cliente?.telefone || ticket.contatoWpp}</p>
+                                <p className="text-slate-400 text-xs uppercase tracking-wider">
+                                  {isEmailTicket ? "Email (origem)" : "Telefone / WhatsApp"}
+                                </p>
+                                <p className="text-slate-200">
+                                  {isEmailTicket
+                                    ? ticket.cliente?.email || ticket.contatoWpp || "--"
+                                    : ticket.cliente?.whatsappNumber || ticket.cliente?.telefone || ticket.contatoWpp || "--"}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-slate-400 text-xs uppercase tracking-wider">Email</p>
@@ -593,6 +647,39 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                 </div>
               </div>
 
+              <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
+                <div>
+                  <p className="text-sm text-slate-300 mb-2">Moeda para envio</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(["BRL", "USD", "EUR"] as const).map((currency) => (
+                      <Button
+                        key={currency}
+                        variant={cotacaoCurrency === currency ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCotacaoCurrency(currency)}
+                      >
+                        {currency === "BRL" ? "Real (BRL)" : currency === "USD" ? "Dólar (USD)" : "Euro (EUR)"}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-300 mb-2">Idioma da mensagem</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(["pt-BR", "en-US"] as const).map((locale) => (
+                      <Button
+                        key={locale}
+                        variant={cotacaoLocale === locale ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCotacaoLocale(locale)}
+                      >
+                        {locale === "pt-BR" ? "Português (pt-BR)" : "English (en-US)"}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {cotacaoDetail.observacoes && (
                 <div>
                   <p className="text-sm text-slate-400">Observações</p>
@@ -672,7 +759,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   }
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  {isSendingCotacao ? "Enviando..." : "Enviar cotação no chat"}
+                  {isSendingCotacao ? "Enviando..." : "Enviar proposta no chat"}
                 </Button>
               </div>
             </div>
