@@ -12,10 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { NeonLinesBackground } from "@/components/ui/NeonLinesBackground";
 import { resolveTenantIdFromEmail } from "@/lib/tenant";
 import { authApi } from "@/services/auth.service";
+import { hasPermission } from "@/lib/permissions";
+import { useAuthStore } from "@/store/authStore";
 
 export default function LoginPage() {
     const router = useRouter();
     const { addNotification } = useNotificationStore();
+    const setAuth = useAuthStore((state) => state.setAuth);
     
     const [tenantTitle, setTenantTitle] = useState("INTERSERVICE USA");
     const [email, setEmail] = useState("");
@@ -34,6 +37,31 @@ export default function LoginPage() {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isFirstLoginLoading, setIsFirstLoginLoading] = useState(false);
     const [firstLoginError, setFirstLoginError] = useState<string | null>(null);
+
+    const ROUTE_PERMISSIONS: Array<{ prefix: string; required: string | string[] }> = [
+        { prefix: "/dashboard", required: "dashboard:read" },
+        { prefix: "/tickets", required: "tickets:read" },
+        { prefix: "/kanban", required: "kanban:read" },
+        { prefix: "/agenda", required: "kanban:read" },
+        { prefix: "/reports", required: "metrics:read" },
+        { prefix: "/settings/criar-usuario", required: "usuarios:read" },
+        { prefix: "/settings", required: "roles:manage" },
+    ];
+
+    const getAllowedRoute = (permissions: string[] | undefined) => {
+        const match = ROUTE_PERMISSIONS.find((route) => hasPermission(permissions, route.required));
+        return match?.prefix ?? "/dashboard";
+    };
+
+    const redirectAfterLogin = async (token: string) => {
+        try {
+            const me = await authApi.me();
+            setAuth(me, token);
+            router.push(getAllowedRoute(me.permissions));
+        } catch {
+            router.push("/dashboard");
+        }
+    };
 
     useEffect(() => {
         const storedEmail = localStorage.getItem("firstLoginEmail");
@@ -93,7 +121,7 @@ export default function LoginPage() {
                     type: "success",
                     category: "system"
                 });
-                router.push("/dashboard"); 
+                await redirectAfterLogin(data.token);
             } else {
                 throw new Error("Resposta inválida do servidor");
             }
@@ -142,7 +170,7 @@ export default function LoginPage() {
                 category: "system"
             });
             setIsFirstLoginOpen(false);
-            router.push("/dashboard");
+            await redirectAfterLogin(data.token);
         } catch (error: any) {
             setFirstLoginError(
                 error.response?.data?.error?.message || "Falha ao concluir o primeiro acesso."
