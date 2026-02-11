@@ -59,6 +59,8 @@ export interface User {
   createdAt?: string;
   tenantId?: string;
   tenantName?: string;
+  profilePhotoUrl?: string | null;
+  isActive?: boolean;
 }
 
 /**
