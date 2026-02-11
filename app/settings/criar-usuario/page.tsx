@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { User, Lock, Mail, Upload, X, Image as ImageIcon, Shield, Settings, Database } from "lucide-react";
@@ -58,18 +58,21 @@ export default function UsuariosPage() {
   /* =========================
      QUERY – LISTAR
   ========================== */
-  const { data: usuarios = [], refetch } = useQuery({
+  const { data: usuarios = [], refetch, error: usuariosError } = useQuery({
     queryKey: ["usuarios"],
     queryFn: async () => (await api.get("/api/v1/usuarios")).data.data,
-    onError: (error: any) => {
-      addNotification({
-        title: "Erro",
-        message: error?.response?.data?.message || "Falha ao carregar usuários.",
-        type: "error",
-        category: "users"
-      });
-    },
   });
+
+  useEffect(() => {
+    if (!usuariosError) return;
+    const err = usuariosError as any;
+    addNotification({
+      title: "Erro",
+      message: err?.response?.data?.message || "Falha ao carregar usuários.",
+      type: "error",
+      category: "users"
+    });
+  }, [usuariosError, addNotification]);
 
   /* =========================
      FUNÇÃO UPLOAD FOTO
