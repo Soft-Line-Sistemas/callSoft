@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Send, Lock, UserPlus, Zap, User, ImagePlus, Clock } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { CreateClienteModal, type ClienteFormData } from "@/components/modals/CreateClienteModal";
+import { isEmailContact } from "@/lib/contact";
 
 interface Message {
   id: string;
@@ -105,6 +106,7 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
   const imageInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { addNotification } = useNotificationStore();
+  const isEmailTicket = isEmailContact(whatsappNumber);
 
   // Busca cliente vinculado
   const { data: cliente, refetch: refetchCliente } = useQuery<Cliente | null>({
@@ -351,14 +353,16 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
             )}
             <div className="flex-1">
               <h3 className="text-white font-semibold">{cliente.nome}</h3>
-              <p className="text-sm text-slate-400">{whatsappNumber}</p>
+              <p className="text-sm text-slate-400">
+                {isEmailTicket ? cliente.email || whatsappNumber : whatsappNumber}
+              </p>
               {cliente.empresa && (
                 <p className="text-xs text-slate-500">{cliente.empresa}</p>
               )}
             </div>
           </div>
         </div>
-      ) : (
+      ) : !isEmailTicket ? (
         <div className="mb-4 p-4 glass rounded-lg border border-amber-500/30 bg-amber-500/5">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2">
@@ -389,7 +393,7 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div
         ref={messagesContainerRef}

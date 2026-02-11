@@ -16,9 +16,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/Badge";
 import { useNotificationStore } from "@/store/notificationStore";
 import { resolveUserPhotoUrl } from "@/lib/media";
+import { resolveTenantIdFromEmail } from "@/lib/tenant";
+import { useAuthStore } from "@/store/authStore";
 
 export default function UsuariosPage() {
   const { addNotification } = useNotificationStore();
+  const authTenantId = useAuthStore((state) => state.user?.tenantId ?? null);
   /* =========================
      STATES – FORM CRIAÇÃO
   ========================== */
@@ -38,6 +41,14 @@ export default function UsuariosPage() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const resolvedTenantId = email ? resolveTenantIdFromEmail(email) : null;
+  const emailTenantMismatch =
+    Boolean(email) &&
+    Boolean(authTenantId) &&
+    Boolean(resolvedTenantId) &&
+    resolvedTenantId !== authTenantId;
+  const emailTenantInvalid = Boolean(email) && !resolvedTenantId;
+
   /* =========================
      STATES – EDIÇÃO
   ========================== */
@@ -50,6 +61,14 @@ export default function UsuariosPage() {
   const { data: usuarios = [], refetch } = useQuery({
     queryKey: ["usuarios"],
     queryFn: async () => (await api.get("/api/v1/usuarios")).data.data,
+    onError: (error: any) => {
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao carregar usuários.",
+        type: "error",
+        category: "users"
+      });
+    },
   });
 
   /* =========================
@@ -109,7 +128,15 @@ export default function UsuariosPage() {
   };
 
   const handleFileSelect = (file: File) => {
-    if (!file.type.startsWith("image/")) return;
+    if (!file.type.startsWith("image/")) {
+      addNotification({
+        title: "Atenção",
+        message: "Selecione um arquivo de imagem válido.",
+        type: "warning",
+        category: "users"
+      });
+      return;
+    }
     
     setFoto(file);
     setPreview(URL.createObjectURL(file));
@@ -149,6 +176,12 @@ export default function UsuariosPage() {
              await uploadFotoParaUsuario(res.data.data.codUsu, foto);
           } catch (e) {
              console.error("Erro ao fazer upload da foto após registro", e);
+             addNotification({
+               title: "Atenção",
+               message: "Usuário criado, mas falhou o upload da foto.",
+               type: "warning",
+               category: "users"
+             });
           }
       }
       
@@ -200,7 +233,7 @@ export default function UsuariosPage() {
       return api.put(`/api/v1/usuarios/${usuarioEdit.codUsu}`, {
         login: usuarioEdit.login,
         senha: usuarioEdit.senha || undefined,
-        email: usuarioEdit.email || null,
+        email: usuarioEdit.email ? String(usuarioEdit.email).toLowerCase() : null,
         caminhoWeb,
       });
     },
@@ -229,8 +262,23 @@ export default function UsuariosPage() {
      INATIVAR
   ========================== */
   async function inativarUsuario(id: number) {
-    await api.patch(`/api/v1/usuarios/${id}/inativar`);
-    refetch();
+    try {
+      await api.patch(`/api/v1/usuarios/${id}/inativar`);
+      refetch();
+      addNotification({
+        title: "Sucesso",
+        message: "Usuário inativado.",
+        type: "success",
+        category: "users"
+      });
+    } catch (error: any) {
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao inativar usuário.",
+        type: "error",
+        category: "users"
+      });
+    }
   }
 
   /* =========================
@@ -429,6 +477,16 @@ export default function UsuariosPage() {
                           leftIcon={<Mail size={18} />}
                           type="email"
                         />
+                        {emailTenantInvalid && (
+                          <p className="text-xs text-amber-400">
+                            Informe um email válido no formato usuario@tenant.com.
+                          </p>
+                        )}
+                        {emailTenantMismatch && (
+                          <p className="text-xs text-amber-400">
+                            O domínio do email não corresponde ao tenant atual.
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -504,7 +562,14 @@ export default function UsuariosPage() {
               <div className="flex justify-end pt-4">
                 <Button
                   onClick={() => createMutation.mutate()}
-                  disabled={!email || senha.length < 8 || createMutation.isPending}
+                  disabled={
+                    !login.trim() ||
+                    !email ||
+                    senha.length < 8 ||
+                    emailTenantMismatch ||
+                    emailTenantInvalid ||
+                    createMutation.isPending
+                  }
                   className="w-full md:w-auto px-8 py-6 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all shadow-lg shadow-purple-900/20"
                 >
                   {createMutation.isPending ? "Criando..." : "Criar Usuário"}
@@ -624,6 +689,7 @@ export default function UsuariosPage() {
                 <label className="text-sm text-slate-400">Nova Senha</label>
                 <Input
                     placeholder="Deixe em branco para manter a atual"
+                    type="password"
                     onChange={e => setUsuarioEdit({ ...usuarioEdit, senha: e.target.value })}
                 />
             </div>

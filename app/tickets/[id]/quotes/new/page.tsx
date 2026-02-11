@@ -60,6 +60,21 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
         setFormData(prev => ({ ...prev, itens: newItems }));
     };
 
+    const subtotal = formData.itens.reduce((sum, item) => {
+        const quantidade = Number(item.quantidade) || 0;
+        const precoUnitario = Number(item.precoUnitario) || 0;
+        return sum + quantidade * precoUnitario;
+    }, 0);
+
+    const valorGlobal = (() => {
+        const desconto = Number(formData.descontoGlobal) || 0;
+        if (!desconto) return subtotal;
+        if (formData.descontoTipo === "PERCENTUAL") {
+            return subtotal * (1 - desconto / 100);
+        }
+        return Math.max(0, subtotal - desconto);
+    })();
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -290,6 +305,14 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
                                             <option value="PERCENTUAL">%</option>
                                         </select>
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">Valor Global</label>
+                                    <Input
+                                        type="text"
+                                        value={valorGlobal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                        readOnly
+                                    />
                                 </div>
                                 <div className="md:col-span-3">
                                     <label className="block text-sm font-medium text-slate-300 mb-2">Observações</label>

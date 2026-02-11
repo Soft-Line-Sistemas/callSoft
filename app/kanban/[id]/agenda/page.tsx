@@ -16,8 +16,11 @@ import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/Input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import type { Kanban } from "@/types";
+import { useNotificationStore } from "@/store/notificationStore";
 
 interface KanbanTask {
   id: string;
@@ -30,12 +33,17 @@ interface KanbanTask {
 export default function AgendaKanbanPage() {
   const params = useParams();
   const kanbanId = params?.id as string | undefined;
+  const { addNotification } = useNotificationStore();
 
   const [tasks, setTasks] = useState<KanbanTask[]>([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<View>("month");
   const [date, setDate] = useState<Date>(new Date());
   const [kanban, setKanban] = useState<Kanban | null>(null);
+  const [openModal, setOpenModal] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null);
+  const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
 
   moment.locale("pt-br");
   const localizer = momentLocalizer(moment);
@@ -53,6 +61,12 @@ export default function AgendaKanbanPage() {
       setKanban(kanbanRes.data?.data ?? null);
     } catch (err) {
       console.error("Erro ao buscar tarefas do Kanban", err);
+      addNotification({
+        title: "Erro",
+        message: "Falha ao carregar a agenda do Kanban.",
+        type: "error",
+        category: "system"
+      });
     } finally {
       setLoading(false);
     }
@@ -62,39 +76,101 @@ export default function AgendaKanbanPage() {
     void fetchTasks();
   }, [kanbanId]);
 
-  const handleSelectSlot = async (slotInfo: SlotInfo) => {
+  const handleSelectSlot = (slotInfo: SlotInfo) => {
     if (!kanbanId) return;
-    const titulo = prompt("Titulo da nova tarefa:");
-    if (!titulo) return;
-
-    try {
-      const res = await api.post("/api/v1/kanban-schedule", {
-        kanbanId,
-        titulo,
-        dataInicio: slotInfo.start.toISOString(),
-        dataFim: slotInfo.end.toISOString(),
-      });
-      if (res.data?.data) {
-        setTasks((prev) => [...prev, res.data.data]);
-      }
-    } catch (err) {
-      console.error("Erro ao criar tarefa", err);
-    }
+    setSelectedSlot(slotInfo);
+    setNewTaskTitle("");
+    setEditingTask(null);
+    setOpenModal(true);
   };
 
   const handleSelectEvent = (event: any) => {
     const task = tasks.find((t) => t.id === event.id);
     if (!task) return;
 
-    const novoTitulo = prompt("Editar titulo:", task.titulo || "");
-    if (novoTitulo === null) return;
+    setEditingTask(task);
+    setNewTaskTitle(task.titulo || "");
+    setSelectedSlot(null);
+    setOpenModal(true);
+  };
 
-    api
-      .patch(`/api/v1/kanban-schedule/${task.id}`, { titulo: novoTitulo })
-      .then(() => {
-        setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, titulo: novoTitulo } : t)));
-      })
-      .catch((err) => console.error("Erro ao editar tarefa", err));
+  const handleSaveTask = async () => {
+    if (!newTaskTitle.trim()) {
+      addNotification({
+        title: "Atenção",
+        message: "Informe um título para a tarefa.",
+        type: "warning",
+        category: "system"
+      });
+      return;
+    }
+
+    if (!kanbanId) return;
+
+    if (editingTask) {
+      try {
+        await api.patch(`/api/v1/kanban-schedule/${editingTask.id}`, { titulo: newTaskTitle });
+        setTasks((prev) =>
+          prev.map((t) => (t.id === editingTask.id ? { ...t, titulo: newTaskTitle } : t))
+        );
+        setEditingTask(null);
+        setOpenModal(false);
+        addNotification({
+          title: "Sucesso",
+          message: "Tarefa atualizada com sucesso.",
+          type: "success",
+          category: "system"
+        });
+      } catch (err) {
+        console.error("Erro ao editar tarefa", err);
+        addNotification({
+          title: "Erro",
+          message: "Falha ao atualizar a tarefa.",
+          type: "error",
+          category: "system"
+        });
+      }
+      return;
+    }
+
+    if (!selectedSlot) {
+      addNotification({
+        title: "Erro",
+        message: "Seleção de horário inválida.",
+        type: "error",
+        category: "system"
+      });
+      return;
+    }
+
+    try {
+      const res = await api.post("/api/v1/kanban-schedule", {
+        kanbanId,
+        titulo: newTaskTitle,
+        dataInicio: selectedSlot.start.toISOString(),
+        dataFim: selectedSlot.end.toISOString(),
+      });
+      if (res.data?.data) {
+        setTasks((prev) => [...prev, res.data.data]);
+      }
+      setOpenModal(false);
+      setNewTaskTitle("");
+      setSelectedSlot(null);
+      addNotification({
+        title: "Sucesso",
+        message: "Tarefa criada com sucesso.",
+        type: "success",
+        category: "system"
+      });
+    } catch (err) {
+      console.error("Erro ao criar tarefa", err);
+      addNotification({
+        title: "Erro",
+        message: "Falha ao criar a tarefa.",
+        type: "error",
+        category: "system"
+      });
+    }
   };
 
   const handleEventDrop = ({ event, start, end }: any) => {
@@ -109,8 +185,22 @@ export default function AgendaKanbanPage() {
             t.id === event.id ? { ...t, dataInicio: start.toISOString(), dataFim: end.toISOString() } : t
           )
         );
+        addNotification({
+          title: "Sucesso",
+          message: "Horário da tarefa atualizado.",
+          type: "success",
+          category: "system"
+        });
       })
-      .catch((err) => console.error("Erro ao mover tarefa", err));
+      .catch((err) => {
+        console.error("Erro ao mover tarefa", err);
+        addNotification({
+          title: "Erro",
+          message: "Falha ao mover a tarefa.",
+          type: "error",
+          category: "system"
+        });
+      });
   };
 
   const handleEventResize = ({ event, start, end }: any) => {
@@ -125,8 +215,22 @@ export default function AgendaKanbanPage() {
             t.id === event.id ? { ...t, dataInicio: start.toISOString(), dataFim: end.toISOString() } : t
           )
         );
+        addNotification({
+          title: "Sucesso",
+          message: "Duração da tarefa atualizada.",
+          type: "success",
+          category: "system"
+        });
       })
-      .catch((err) => console.error("Erro ao redimensionar tarefa", err));
+      .catch((err) => {
+        console.error("Erro ao redimensionar tarefa", err);
+        addNotification({
+          title: "Erro",
+          message: "Falha ao redimensionar a tarefa.",
+          type: "error",
+          category: "system"
+        });
+      });
   };
 
   const eventPropGetter = () => ({
@@ -214,6 +318,41 @@ export default function AgendaKanbanPage() {
           </div>
         </div>
       </main>
+      <Dialog open={openModal} onOpenChange={setOpenModal}>
+        <DialogContent className="bg-slate-900 text-slate-100 max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingTask ? "Editar tarefa" : "Criar nova tarefa"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Titulo</label>
+              <Input
+                type="text"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="Digite o titulo..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setOpenModal(false);
+                  setEditingTask(null);
+                  setSelectedSlot(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveTask}>
+                {editingTask ? "Atualizar" : "Salvar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <style jsx global>{`
         .rbc-theme-dark .rbc-calendar {
           color: #e2e8f0;

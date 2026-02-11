@@ -58,6 +58,72 @@ export default function AgendaPage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const logsPageSize = 10;
 
+  const formatActionLabel = (action: string) => {
+    const normalized = String(action || "").toUpperCase();
+    const map: Record<string, string> = {
+      SCHEDULE_TASK_CREATE: "Tarefa criada",
+      SCHEDULE_TASK_UPDATE: "Tarefa atualizada",
+      SCHEDULE_TASK_DELETE: "Tarefa removida",
+      KANBAN_SCHEDULE_TASK_CREATE: "Tarefa criada (Kanban)",
+      KANBAN_SCHEDULE_TASK_UPDATE: "Tarefa atualizada (Kanban)",
+      KANBAN_SCHEDULE_TASK_DELETE: "Tarefa removida (Kanban)",
+    };
+    return map[normalized] ?? action;
+  };
+
+  const formatDetailValue = (value: unknown) => {
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      const asDate = new Date(value);
+      if (!Number.isNaN(asDate.getTime())) return asDate.toLocaleString();
+    }
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "boolean") return value ? "Sim" : "Não";
+    if (typeof value === "number") return String(value);
+    if (typeof value === "string") return value;
+    return String(value);
+  };
+
+  const formatGenericDetails = (details: Record<string, unknown>) => {
+    const map: Array<[string, string]> = [
+      ["titulo", "Título"],
+      ["descricao", "Descrição"],
+      ["dataInicio", "Início"],
+      ["dataFim", "Fim"],
+      ["colunaId", "Coluna"],
+      ["kanbanId", "Kanban"],
+      ["userId", "Usuário"],
+    ];
+    const parts = map
+      .filter(([key]) => key in details)
+      .map(([key, label]) => `${label}: ${formatDetailValue((details as any)[key])}`);
+    return parts.join(" • ") || "-";
+  };
+
+  const formatLogDetails = (details?: string | null) => {
+    if (!details) return "-";
+    let parsed: Record<string, unknown> | null = null;
+    try {
+      parsed = JSON.parse(details);
+    } catch {
+      parsed = null;
+    }
+
+    if (!parsed) return details;
+
+    const entries: Array<{ label: string; value: unknown }> = [];
+    if ("titulo" in parsed) entries.push({ label: "Título", value: (parsed as any).titulo });
+    if ("descricao" in parsed) entries.push({ label: "Descrição", value: (parsed as any).descricao });
+    if ("dataInicio" in parsed) entries.push({ label: "Início", value: (parsed as any).dataInicio });
+    if ("dataFim" in parsed) entries.push({ label: "Fim", value: (parsed as any).dataFim });
+    if ("kanbanId" in parsed) entries.push({ label: "Kanban", value: (parsed as any).kanbanId });
+
+    if (!entries.length) return formatGenericDetails(parsed);
+
+    return entries
+      .map((entry) => `${entry.label}: ${formatDetailValue(entry.value)}`)
+      .join(" • ");
+  };
+
   moment.locale("pt-br");
   const localizer = momentLocalizer(moment);
   const DnDCalendar = withDragAndDrop<any>(Calendar);
@@ -70,6 +136,12 @@ export default function AgendaPage() {
         setKanbans(res.data?.data ?? []);
       } catch (err) {
         console.error("Erro ao buscar kanbans", err);
+        addNotification({
+          title: "Erro",
+          message: "Falha ao carregar seus Kanbans.",
+          type: "error",
+          category: "system"
+        });
       }
     };
     void fetchKanbans();
@@ -83,6 +155,12 @@ export default function AgendaPage() {
       setTasks(res.data?.data ?? []);
     } catch (err) {
       console.error("Erro ao buscar tasks", err);
+      addNotification({
+        title: "Erro",
+        message: "Falha ao carregar tarefas da agenda.",
+        type: "error",
+        category: "system"
+      });
     } finally {
       setLoading(false);
     }
@@ -105,6 +183,12 @@ export default function AgendaPage() {
         setLogsTotal(data?.total ?? 0);
       } catch (err) {
         console.error("Erro ao buscar logs da agenda", err);
+        addNotification({
+          title: "Erro",
+          message: "Falha ao carregar o histórico da agenda.",
+          type: "error",
+          category: "system"
+        });
       } finally {
         setLogsLoading(false);
       }
@@ -114,7 +198,13 @@ export default function AgendaPage() {
 
   const handleSelectSlot = (slotInfo: SlotInfo) => {
     if (!kanbans || kanbans.length === 0) {
-      return alert("Voce ainda nao tem nenhum Kanban. Crie um primeiro!");
+      addNotification({
+        title: "Atenção",
+        message: "Você ainda não tem nenhum Kanban. Crie um primeiro!",
+        type: "warning",
+        category: "system"
+      });
+      return;
     }
     setSelectedSlot(slotInfo);
     setNewTaskTitle("");
@@ -137,11 +227,25 @@ export default function AgendaPage() {
 
   const handleCreateTask = async () => {
     if (!selectedKanbanId || !selectedSlot || !newTaskTitle.trim() || !usuarioId) {
-      return alert("Preencha Kanban e titulo.");
+      addNotification({
+        title: "Atenção",
+        message: "Preencha Kanban e título.",
+        type: "warning",
+        category: "system"
+      });
+      return;
     }
 
     const kanban = kanbans.find((k) => k.id === selectedKanbanId);
-    if (!kanban) return alert("Kanban invalido!");
+    if (!kanban) {
+      addNotification({
+        title: "Erro",
+        message: "Kanban inválido.",
+        type: "error",
+        category: "system"
+      });
+      return;
+    }
 
     const start = moment.tz(selectedSlot.start, "America/Sao_Paulo");
     const end =
@@ -184,6 +288,12 @@ export default function AgendaPage() {
       });
     } catch (err) {
       console.error("Erro ao criar task", err);
+      addNotification({
+        title: "Erro",
+        message: "Falha ao criar a tarefa.",
+        type: "error",
+        category: "system"
+      });
     }
   };
 
@@ -385,9 +495,9 @@ export default function AgendaPage() {
                   <div key={log.id} className="grid grid-cols-4 gap-2 border-t border-white/10 px-4 py-3 text-sm text-slate-200">
                     <span>{new Date(log.createdAt).toLocaleString()}</span>
                     <span>{log.actorEmail ?? "Sistema"}</span>
-                    <span>{log.action}</span>
+                    <span>{formatActionLabel(log.action)}</span>
                     <span className="text-slate-400 line-clamp-2">
-                      {log.details ? log.details : "-"}
+                      {formatLogDetails(log.details)}
                     </span>
                   </div>
                 ))}
