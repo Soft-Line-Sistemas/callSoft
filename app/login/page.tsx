@@ -50,14 +50,15 @@ export default function LoginPage() {
 
     const getAllowedRoute = (permissions: string[] | undefined) => {
         const match = ROUTE_PERMISSIONS.find((route) => hasPermission(permissions, route.required));
-        return match?.prefix ?? "/dashboard";
+        return match?.prefix ?? null;
     };
 
     const redirectAfterLogin = async (token: string) => {
         try {
             const me = await authApi.me();
             setAuth(me, token);
-            router.push(getAllowedRoute(me.permissions));
+            const target = getAllowedRoute(me.permissions);
+            router.push(target ?? "/acesso-restrito");
         } catch {
             router.push("/dashboard");
         }
