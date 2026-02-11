@@ -70,6 +70,12 @@ export default function AgendaPage() {
         setKanbans(res.data?.data ?? []);
       } catch (err) {
         console.error("Erro ao buscar kanbans", err);
+        addNotification({
+          title: "Erro",
+          message: "Falha ao carregar seus Kanbans.",
+          type: "error",
+          category: "system"
+        });
       }
     };
     void fetchKanbans();
@@ -83,6 +89,12 @@ export default function AgendaPage() {
       setTasks(res.data?.data ?? []);
     } catch (err) {
       console.error("Erro ao buscar tasks", err);
+      addNotification({
+        title: "Erro",
+        message: "Falha ao carregar tarefas da agenda.",
+        type: "error",
+        category: "system"
+      });
     } finally {
       setLoading(false);
     }
@@ -105,6 +117,12 @@ export default function AgendaPage() {
         setLogsTotal(data?.total ?? 0);
       } catch (err) {
         console.error("Erro ao buscar logs da agenda", err);
+        addNotification({
+          title: "Erro",
+          message: "Falha ao carregar o histórico da agenda.",
+          type: "error",
+          category: "system"
+        });
       } finally {
         setLogsLoading(false);
       }
@@ -114,7 +132,13 @@ export default function AgendaPage() {
 
   const handleSelectSlot = (slotInfo: SlotInfo) => {
     if (!kanbans || kanbans.length === 0) {
-      return alert("Voce ainda nao tem nenhum Kanban. Crie um primeiro!");
+      addNotification({
+        title: "Atenção",
+        message: "Você ainda não tem nenhum Kanban. Crie um primeiro!",
+        type: "warning",
+        category: "system"
+      });
+      return;
     }
     setSelectedSlot(slotInfo);
     setNewTaskTitle("");
@@ -137,11 +161,25 @@ export default function AgendaPage() {
 
   const handleCreateTask = async () => {
     if (!selectedKanbanId || !selectedSlot || !newTaskTitle.trim() || !usuarioId) {
-      return alert("Preencha Kanban e titulo.");
+      addNotification({
+        title: "Atenção",
+        message: "Preencha Kanban e título.",
+        type: "warning",
+        category: "system"
+      });
+      return;
     }
 
     const kanban = kanbans.find((k) => k.id === selectedKanbanId);
-    if (!kanban) return alert("Kanban invalido!");
+    if (!kanban) {
+      addNotification({
+        title: "Erro",
+        message: "Kanban inválido.",
+        type: "error",
+        category: "system"
+      });
+      return;
+    }
 
     const start = moment.tz(selectedSlot.start, "America/Sao_Paulo");
     const end =
@@ -184,6 +222,12 @@ export default function AgendaPage() {
       });
     } catch (err) {
       console.error("Erro ao criar task", err);
+      addNotification({
+        title: "Erro",
+        message: "Falha ao criar a tarefa.",
+        type: "error",
+        category: "system"
+      });
     }
   };
 
