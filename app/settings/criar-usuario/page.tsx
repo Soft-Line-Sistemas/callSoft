@@ -23,6 +23,7 @@ export default function UsuariosPage() {
   const { addNotification } = useNotificationStore();
   const authTenantId = useAuthStore((state) => state.user?.tenantId ?? null);
   const authTenantName = useAuthStore((state) => state.user?.tenantName ?? null);
+  const tenantLabel = authTenantName || authTenantId || "tenant";
   /* =========================
      STATES – FORM CRIAÇÃO
   ========================== */
@@ -483,12 +484,12 @@ export default function UsuariosPage() {
                         />
                         {emailTenantInvalid && (
                           <p className="text-xs text-amber-400">
-                            Informe um email válido no formato usuario@tenant.com.
+                            Informe um email válido no formato usuario@{tenantLabel}.com.
                           </p>
                         )}
                         {emailTenantMismatch && (
                           <p className="text-xs text-amber-400">
-                            O domínio do email não corresponde a {(authTenantName || authTenantId) ?? "este tenant"}.
+                            O domínio do email não corresponde a {tenantLabel}.
                           </p>
                         )}
                       </div>
