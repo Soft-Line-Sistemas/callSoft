@@ -22,6 +22,7 @@ import { useAuthStore } from "@/store/authStore";
 export default function UsuariosPage() {
   const { addNotification } = useNotificationStore();
   const authTenantId = useAuthStore((state) => state.user?.tenantId ?? null);
+  const authTenantName = useAuthStore((state) => state.user?.tenantName ?? null);
   /* =========================
      STATES – FORM CRIAÇÃO
   ========================== */
@@ -487,7 +488,7 @@ export default function UsuariosPage() {
                         )}
                         {emailTenantMismatch && (
                           <p className="text-xs text-amber-400">
-                            O domínio do email não corresponde ao tenant atual.
+                            O domínio do email não corresponde a {(authTenantName || authTenantId) ?? "este tenant"}.
                           </p>
                         )}
                       </div>
