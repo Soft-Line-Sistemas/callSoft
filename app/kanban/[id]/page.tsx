@@ -94,6 +94,9 @@ const ACTION_LABELS: Record<string, string> = {
   KANBAN_SCHEDULE_TASK_CREATE: "Agenda: tarefa criada",
   KANBAN_SCHEDULE_TASK_UPDATE: "Agenda: tarefa atualizada",
   KANBAN_SCHEDULE_TASK_DELETE: "Agenda: tarefa excluida",
+  SCHEDULE_TASK_CREATE: "Agenda: tarefa criada",
+  SCHEDULE_TASK_UPDATE: "Agenda: tarefa atualizada",
+  SCHEDULE_TASK_DELETE: "Agenda: tarefa excluida",
 };
 
 const toLabel = (value?: string | null) => (value ? `"${value}"` : "");
@@ -103,6 +106,13 @@ const formatDate = (value?: string | null) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString();
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString();
 };
 
 const truncate = (value: string, max = 80) => {
@@ -118,6 +128,33 @@ const parseDetails = (raw?: string | null) => {
   } catch {
     return null;
   }
+};
+
+const formatDetailValue = (value: any) => {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    return formatDateTime(value) ?? value;
+  }
+  if (typeof value === "string") return value;
+  return String(value);
+};
+
+const formatGenericDetails = (details: Record<string, any>) => {
+  const map: Array<[string, string]> = [
+    ["titulo", "Título"],
+    ["descricao", "Descrição"],
+    ["dataInicio", "Início"],
+    ["dataFim", "Fim"],
+    ["colunaId", "Coluna"],
+    ["kanbanId", "Kanban"],
+    ["userId", "Usuário"],
+  ];
+  const parts = map
+    .filter(([key]) => key in details)
+    .map(([key, label]) => `${label}: ${formatDetailValue(details[key])}`);
+  return parts.join(" • ") || "-";
 };
 
 const formatLogDetails = (action: string, details: Record<string, any> | null, kanban: Kanban | null) => {
@@ -180,10 +217,20 @@ const formatLogDetails = (action: string, details: Record<string, any> | null, k
     }
     case "KANBAN_SCHEDULE_TASK_DELETE":
       return details.titulo ? `Tarefa ${toLabel(details.titulo)}` : "-";
+    case "SCHEDULE_TASK_CREATE":
+    case "SCHEDULE_TASK_UPDATE": {
+      const parts = [];
+      if (details.titulo) parts.push(`Tarefa ${toLabel(details.titulo)}`);
+      if (dataInicio) parts.push(`Inicio: ${dataInicio}`);
+      if (dataFim) parts.push(`Fim: ${dataFim}`);
+      return parts.join(" • ") || "-";
+    }
+    case "SCHEDULE_TASK_DELETE":
+      return details.titulo ? `Tarefa ${toLabel(details.titulo)}` : "-";
     case "KANBAN_DELETE":
       return details.titulo ? `Kanban ${toLabel(details.titulo)}` : "-";
     default:
-      return "-";
+      return formatGenericDetails(details);
   }
 };
 

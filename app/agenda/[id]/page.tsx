@@ -83,6 +83,22 @@ export default function AgendaPage() {
     return String(value);
   };
 
+  const formatGenericDetails = (details: Record<string, unknown>) => {
+    const map: Array<[string, string]> = [
+      ["titulo", "Título"],
+      ["descricao", "Descrição"],
+      ["dataInicio", "Início"],
+      ["dataFim", "Fim"],
+      ["colunaId", "Coluna"],
+      ["kanbanId", "Kanban"],
+      ["userId", "Usuário"],
+    ];
+    const parts = map
+      .filter(([key]) => key in details)
+      .map(([key, label]) => `${label}: ${formatDetailValue((details as any)[key])}`);
+    return parts.join(" • ") || "-";
+  };
+
   const formatLogDetails = (details?: string | null) => {
     if (!details) return "-";
     let parsed: Record<string, unknown> | null = null;
@@ -101,7 +117,7 @@ export default function AgendaPage() {
     if ("dataFim" in parsed) entries.push({ label: "Fim", value: (parsed as any).dataFim });
     if ("kanbanId" in parsed) entries.push({ label: "Kanban", value: (parsed as any).kanbanId });
 
-    if (!entries.length) return details;
+    if (!entries.length) return formatGenericDetails(parsed);
 
     return entries
       .map((entry) => `${entry.label}: ${formatDetailValue(entry.value)}`)
