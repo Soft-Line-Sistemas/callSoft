@@ -14,7 +14,7 @@ import {
     CalendarDays,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { clearAuthToken } from "../../lib/auth";
 import { useAuth } from "@/hooks/auth";
@@ -63,16 +63,8 @@ export function Sidebar() {
         }
     };
 
-    const { data: userProfile } = useQuery({
-        queryKey: ['auth-me'],
-        queryFn: async () => {
-            const res = await api.get('/api/v1/auth/me');
-            return res.data?.data;
-        },
-        retry: false
-    });
-
-    const permissions = authUser?.permissions ?? userProfile?.permissions;
+    const userProfile = authUser;
+    const permissions = userProfile?.permissions;
     const roleLabel =
         userProfile?.role ||
         (Array.isArray(userProfile?.roles) && userProfile.roles.length > 0 ? userProfile.roles[0] : undefined);
