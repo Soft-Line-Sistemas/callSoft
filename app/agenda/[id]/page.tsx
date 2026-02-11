@@ -58,6 +58,56 @@ export default function AgendaPage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const logsPageSize = 10;
 
+  const formatActionLabel = (action: string) => {
+    const normalized = String(action || "").toUpperCase();
+    const map: Record<string, string> = {
+      SCHEDULE_TASK_CREATE: "Tarefa criada",
+      SCHEDULE_TASK_UPDATE: "Tarefa atualizada",
+      SCHEDULE_TASK_DELETE: "Tarefa removida",
+      KANBAN_SCHEDULE_TASK_CREATE: "Tarefa criada (Kanban)",
+      KANBAN_SCHEDULE_TASK_UPDATE: "Tarefa atualizada (Kanban)",
+      KANBAN_SCHEDULE_TASK_DELETE: "Tarefa removida (Kanban)",
+    };
+    return map[normalized] ?? action;
+  };
+
+  const formatDetailValue = (value: unknown) => {
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      const asDate = new Date(value);
+      if (!Number.isNaN(asDate.getTime())) return asDate.toLocaleString();
+    }
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "boolean") return value ? "Sim" : "Não";
+    if (typeof value === "number") return String(value);
+    if (typeof value === "string") return value;
+    return String(value);
+  };
+
+  const formatLogDetails = (details?: string | null) => {
+    if (!details) return "-";
+    let parsed: Record<string, unknown> | null = null;
+    try {
+      parsed = JSON.parse(details);
+    } catch {
+      parsed = null;
+    }
+
+    if (!parsed) return details;
+
+    const entries: Array<{ label: string; value: unknown }> = [];
+    if ("titulo" in parsed) entries.push({ label: "Título", value: (parsed as any).titulo });
+    if ("descricao" in parsed) entries.push({ label: "Descrição", value: (parsed as any).descricao });
+    if ("dataInicio" in parsed) entries.push({ label: "Início", value: (parsed as any).dataInicio });
+    if ("dataFim" in parsed) entries.push({ label: "Fim", value: (parsed as any).dataFim });
+    if ("kanbanId" in parsed) entries.push({ label: "Kanban", value: (parsed as any).kanbanId });
+
+    if (!entries.length) return details;
+
+    return entries
+      .map((entry) => `${entry.label}: ${formatDetailValue(entry.value)}`)
+      .join(" • ");
+  };
+
   moment.locale("pt-br");
   const localizer = momentLocalizer(moment);
   const DnDCalendar = withDragAndDrop<any>(Calendar);
@@ -429,9 +479,9 @@ export default function AgendaPage() {
                   <div key={log.id} className="grid grid-cols-4 gap-2 border-t border-white/10 px-4 py-3 text-sm text-slate-200">
                     <span>{new Date(log.createdAt).toLocaleString()}</span>
                     <span>{log.actorEmail ?? "Sistema"}</span>
-                    <span>{log.action}</span>
+                    <span>{formatActionLabel(log.action)}</span>
                     <span className="text-slate-400 line-clamp-2">
-                      {log.details ? log.details : "-"}
+                      {formatLogDetails(log.details)}
                     </span>
                   </div>
                 ))}
