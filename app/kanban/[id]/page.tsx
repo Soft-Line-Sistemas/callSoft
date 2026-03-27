@@ -639,6 +639,7 @@ export default function KanbanPage() {
                                       ref={dragProvided.innerRef}
                                       {...dragProvided.draggableProps}
                                       {...dragProvided.dragHandleProps}
+                                      style={dragProvided.draggableProps.style}
                                       className={`mb-3 p-3 bg-slate-900/80 rounded-2xl shadow-sm cursor-pointer border transition ${
                                         dragSnapshot.isDragging
                                           ? "border-purple-400/70 ring-2 ring-purple-400/30"

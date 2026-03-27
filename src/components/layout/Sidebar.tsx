@@ -64,6 +64,11 @@ export function Sidebar() {
     };
 
     const userProfile = authUser;
+    const normalizedTenantId = userProfile?.tenantId?.trim().toLowerCase();
+    const normalizedTenantName = userProfile?.tenantName?.trim().toLowerCase();
+    const isInterserviceTenant =
+        normalizedTenantId === "interservice" ||
+        (normalizedTenantName ? normalizedTenantName.includes("interservice") : false);
     const permissions = userProfile?.permissions;
     const roleLabel =
         userProfile?.role ||
@@ -89,6 +94,7 @@ export function Sidebar() {
             {/* Navigation */}
             <nav className="flex flex-col gap-2 p-4">
                 {navItems
+                  .filter((item) => !(isInterserviceTenant && item.href === "/agenda"))
                   .filter((item) =>
                     item.requiredPermissions ? hasPermission(permissions, item.requiredPermissions) : true,
                   )
