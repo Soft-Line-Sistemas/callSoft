@@ -38,8 +38,11 @@ export type TicketStatus =
   | "SOLICITADO"
   | "PENDENTE_ATENDIMENTO"
   | "EM_ATENDIMENTO"
+  | "EM_PROCESSO_LOGISTICO"
   | "CONCLUIDO"
   | "CANCELADO";
+
+export type TicketOrigem = "WHATSAPP" | "EMAIL" | "TELEFONE" | "WEB";
 
 export interface TicketMetrics {
   statusCounts: Record<TicketStatus, number>;
@@ -70,6 +73,7 @@ export interface Ticket {
   pedido: number;
   contatoWpp: string;
   solicitacao: string;
+  origem?: TicketOrigem | string;
   status: TicketStatus;
   horaProposta: string | null;
   empresa?: string | null;

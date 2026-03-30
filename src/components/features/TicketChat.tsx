@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
-import { Send, Lock, UserPlus, Zap, User, ImagePlus, Clock } from "lucide-react";
+import { Send, Lock, UserPlus, Zap, User, Clock, Paperclip, FileText, Download } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { CreateClienteModal, type ClienteFormData } from "@/components/modals/CreateClienteModal";
 import { isEmailContact } from "@/lib/contact";
+import { downloadBlob } from "@/lib/download";
 
 interface Message {
   id: string;
@@ -38,18 +39,34 @@ interface TicketChatProps {
 }
 
 const IMAGE_MESSAGE_PREFIX = "[[image:";
+const ATTACHMENT_MESSAGE_PREFIX = "[[attachment:";
 const IMAGE_MESSAGE_SUFFIX = "]]";
 
-function getImageAttachmentId(message: string): string | null {
-  const trimmed = message.trim();
-  if (!trimmed.startsWith(IMAGE_MESSAGE_PREFIX) || !trimmed.endsWith(IMAGE_MESSAGE_SUFFIX)) {
-    return null;
-  }
-  const inner = trimmed.slice(IMAGE_MESSAGE_PREFIX.length, -IMAGE_MESSAGE_SUFFIX.length).trim();
-  return inner.length > 0 ? inner : null;
+type AttachmentToken = {
+  attachmentId: string;
+  isLegacyImage: boolean;
+};
+
+interface TicketAttachment {
+  id: string;
+  fileNameOriginal: string;
+  mimeType: string;
 }
 
-function ChatImage({ ticketId, attachmentId }: { ticketId: string; attachmentId: string }) {
+function parseAttachmentToken(message: string): AttachmentToken | null {
+  const trimmed = message.trim();
+  const isAttachment = trimmed.startsWith(ATTACHMENT_MESSAGE_PREFIX) && trimmed.endsWith(IMAGE_MESSAGE_SUFFIX);
+  const isLegacyImage = trimmed.startsWith(IMAGE_MESSAGE_PREFIX) && trimmed.endsWith(IMAGE_MESSAGE_SUFFIX);
+  if (!isAttachment && !isLegacyImage) {
+    return null;
+  }
+  const prefix = isAttachment ? ATTACHMENT_MESSAGE_PREFIX : IMAGE_MESSAGE_PREFIX;
+  const inner = trimmed.slice(prefix.length, -IMAGE_MESSAGE_SUFFIX.length).trim();
+  if (!inner) return null;
+  return { attachmentId: inner, isLegacyImage };
+}
+
+function ChatImage({ ticketId, attachmentId, fileName }: { ticketId: string; attachmentId: string; fileName?: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
@@ -90,9 +107,60 @@ function ChatImage({ ticketId, attachmentId }: { ticketId: string; attachmentId:
   return (
     <img
       src={url}
-      alt="Imagem enviada"
+      alt={fileName || "Imagem enviada"}
       className="max-w-full max-h-48 w-auto rounded-md border border-slate-600 object-contain"
     />
+  );
+}
+
+function ChatFile({
+  ticketId,
+  attachmentId,
+  fileName,
+}: {
+  ticketId: string;
+  attachmentId: string;
+  fileName: string;
+}) {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const handleDownload = async () => {
+    setError(false);
+    setIsDownloading(true);
+    try {
+      const res = await api.get(`/api/v1/tickets/${ticketId}/attachments/${attachmentId}/download`, {
+        responseType: "blob",
+      });
+      downloadBlob(res.data, fileName || `anexo-${attachmentId}`);
+    } catch {
+      setError(true);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-md border border-slate-600/80 bg-slate-800/40 p-3">
+      <div className="flex items-center gap-2 text-slate-200">
+        <FileText className="h-4 w-4 text-slate-300" />
+        <span className="text-sm break-all">{fileName || "Arquivo"}</span>
+      </div>
+      <div className="mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleDownload}
+          disabled={isDownloading}
+          className="flex items-center gap-2"
+        >
+          <Download className="h-4 w-4" />
+          {isDownloading ? "Baixando..." : "Baixar"}
+        </Button>
+      </div>
+      {error && <p className="mt-2 text-xs text-amber-400">Não foi possível baixar o arquivo.</p>}
+    </div>
   );
 }
 
@@ -100,6 +168,7 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
   const [newMessage, setNewMessage] = useState("");
   const [isInternal, setIsInternal] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [fallbackNome, setFallbackNome] = useState("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
   const hasLoadedMessagesRef = useRef(false);
@@ -135,6 +204,21 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
     refetchInterval: 5000, // Atualiza a cada 5 segundos
   });
 
+  const { data: ticketAttachments = [] } = useQuery<TicketAttachment[]>({
+    queryKey: ["ticket-attachments-chat", ticketId],
+    queryFn: async () => {
+      const res = await api.get(`/api/v1/tickets/${ticketId}/attachments`);
+      return res.data.data ?? [];
+    },
+  });
+  const attachmentsById = useMemo(
+    () =>
+      new Map(
+        (ticketAttachments || []).map((attachment) => [attachment.id, attachment])
+      ),
+    [ticketAttachments]
+  );
+
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { message: string; isInternal: boolean }) => {
       const res = await api.post(`/api/v1/tickets/${ticketId}/messages`, data);
@@ -160,7 +244,7 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
     },
   });
 
-  const sendImageMutation = useMutation({
+  const sendFileMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
@@ -172,9 +256,10 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ticket-messages", ticketId] });
+      queryClient.invalidateQueries({ queryKey: ["ticket-attachments-chat", ticketId] });
       addNotification({
-        title: "Imagem enviada",
-        message: "Sua imagem foi enviada com sucesso.",
+        title: "Arquivo enviado",
+        message: "Seu arquivo foi enviado com sucesso.",
         type: "success",
         category: "system",
       });
@@ -182,7 +267,7 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
     onError: (error: any) => {
       addNotification({
         title: "Erro",
-        message: error?.response?.data?.message || "Falha ao enviar imagem.",
+        message: error?.response?.data?.message || "Falha ao enviar arquivo.",
         type: "error",
         category: "system",
       });
@@ -243,10 +328,11 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
   });
 
   const createClienteWhatsAppMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (nomeFallback?: string) => {
       const res = await api.post("/api/v1/tickets/clientes/whatsapp", {
         whatsappNumber,
         ticketId,
+        nomeFallback: nomeFallback?.trim() || undefined,
       });
       return res.data.data;
     },
@@ -258,6 +344,7 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
         type: "success",
         category: "system",
       });
+      setFallbackNome("");
     },
     onError: (error: any) => {
       addNotification({
@@ -283,11 +370,11 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
     }
   };
 
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!canSend) return;
     const file = event.target.files?.[0];
     if (!file) return;
-    sendImageMutation.mutate(file);
+    sendFileMutation.mutate(file);
     event.target.value = "";
   };
 
@@ -370,27 +457,36 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
               <span className="text-sm text-amber-200">Cliente não cadastrado</span>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCreateModalOpen(true)}
-              className="flex-1 flex items-center justify-center gap-2"
-              disabled={createClienteManualMutation.isPending}
-            >
-              <UserPlus className="h-4 w-4" />
-              Cadastrar Manualmente
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => createClienteWhatsAppMutation.mutate()}
-              className="flex-1 flex items-center justify-center gap-2"
+          <div className="flex flex-col gap-2">
+            <Input
+              type="text"
+              value={fallbackNome}
+              onChange={(e) => setFallbackNome(e.target.value)}
+              placeholder="Nome manual (fallback, opcional)"
               disabled={createClienteWhatsAppMutation.isPending}
-            >
-              <Zap className="h-4 w-4" />
-              {createClienteWhatsAppMutation.isPending ? "Cadastrando..." : "Auto-cadastrar"}
-            </Button>
+            />
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateModalOpen(true)}
+                className="flex-1 flex items-center justify-center gap-2"
+                disabled={createClienteManualMutation.isPending}
+              >
+                <UserPlus className="h-4 w-4" />
+                Cadastrar Manualmente
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => createClienteWhatsAppMutation.mutate(fallbackNome)}
+                className="flex-1 flex items-center justify-center gap-2"
+                disabled={createClienteWhatsAppMutation.isPending}
+              >
+                <Zap className="h-4 w-4" />
+                {createClienteWhatsAppMutation.isPending ? "Cadastrando..." : "Auto-cadastrar"}
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -430,9 +526,30 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
                 </span>
               </div>
               {(() => {
-                const attachmentId = getImageAttachmentId(msg.message);
-                if (attachmentId) {
-                  return <ChatImage ticketId={ticketId} attachmentId={attachmentId} />;
+                const token = parseAttachmentToken(msg.message);
+                if (token) {
+                  const attachment = attachmentsById.get(token.attachmentId);
+                  const mimeType = attachment?.mimeType || "";
+                  const fileName = attachment?.fileNameOriginal;
+                  const isImage = token.isLegacyImage || mimeType.startsWith("image/");
+
+                  if (isImage) {
+                    return (
+                      <ChatImage
+                        ticketId={ticketId}
+                        attachmentId={token.attachmentId}
+                        fileName={fileName}
+                      />
+                    );
+                  }
+
+                  return (
+                    <ChatFile
+                      ticketId={ticketId}
+                      attachmentId={token.attachmentId}
+                      fileName={fileName || `anexo-${token.attachmentId}`}
+                    />
+                  );
                 }
                 return (
                   <p className="text-sm text-slate-200 whitespace-pre-wrap">{msg.message}</p>
@@ -472,8 +589,8 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
           <input
             ref={imageInputRef}
             type="file"
-            accept="image/png,image/jpeg"
-            onChange={handleImageSelect}
+            accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={handleFileSelect}
             className="hidden"
           />
           <Button
@@ -481,10 +598,10 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
             variant="outline"
             size="icon"
             onClick={() => imageInputRef.current?.click()}
-            disabled={!canSend || sendImageMutation.isPending}
-            title="Enviar imagem"
+            disabled={!canSend || sendFileMutation.isPending}
+            title="Enviar arquivo"
           >
-            <ImagePlus className="h-4 w-4" />
+            <Paperclip className="h-4 w-4" />
           </Button>
           <Input
             value={newMessage}

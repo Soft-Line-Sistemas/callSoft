@@ -21,8 +21,9 @@ const STATUS_OPTIONS: { value: TicketStatus; label: string }[] = [
   { value: TicketStatus.ABERTO, label: 'Aberto' },
   { value: TicketStatus.PENDENTE_ATENDIMENTO, label: 'Pendente atendimento' },
   { value: TicketStatus.EM_ATENDIMENTO, label: 'Em atendimento' },
+  { value: TicketStatus.EM_PROCESSO_LOGISTICO, label: 'Em logística' },
   { value: TicketStatus.CONCLUIDO, label: 'Concluído' },
-  { value: TicketStatus.CANCELADO, label: 'Cancelado' },
+  { value: TicketStatus.CANCELADO, label: 'Recusado' },
 ];
 
 export function StatusTransitionModal({ ticket, open, onOpenChange, onSuccess }: StatusTransitionModalProps) {

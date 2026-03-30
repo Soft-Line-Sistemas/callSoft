@@ -21,6 +21,7 @@ describe('metricsApi', () => {
             SOLICITADO: 1,
             PENDENTE_ATENDIMENTO: 0,
             EM_ATENDIMENTO: 0,
+            EM_PROCESSO_LOGISTICO: 0,
             CONCLUIDO: 0,
             CANCELADO: 0,
           },
@@ -30,6 +31,7 @@ describe('metricsApi', () => {
             SOLICITADO: 5,
             PENDENTE_ATENDIMENTO: 0,
             EM_ATENDIMENTO: 0,
+            EM_PROCESSO_LOGISTICO: 0,
             CONCLUIDO: 0,
             CANCELADO: 0,
           },
@@ -54,4 +56,3 @@ describe('metricsApi', () => {
     expect(result).toEqual(mockResponse.data.data);
   });
 });
-

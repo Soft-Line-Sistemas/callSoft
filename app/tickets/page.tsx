@@ -10,19 +10,21 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Filter, Search, Eye, KanbanSquare, Loader2, MessageCircle, Mail, Pencil } from "lucide-react";
+import { Filter, Search, Eye, KanbanSquare, Loader2, MessageCircle, Mail, Pencil, Phone, Globe } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { CreateTicketModal } from "@/components/modals/CreateTicketModal";
 import { EditTicketModal } from "@/components/modals/EditTicketModal";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { buildWhatsAppSendUrl } from "@/lib/whatsapp";
 
 const STATUS_OPTIONS: Array<{ value: TicketStatus | ""; label: string }> = [
   { value: "", label: "Todos" },
   { value: "SOLICITADO", label: "Solicitado" },
   { value: "PENDENTE_ATENDIMENTO", label: "Pendente" },
   { value: "EM_ATENDIMENTO", label: "Em atendimento" },
+  { value: "EM_PROCESSO_LOGISTICO", label: "Em logística" },
   { value: "CONCLUIDO", label: "Concluído" },
-  { value: "CANCELADO", label: "Cancelado" },
+  { value: "CANCELADO", label: "Recusado" },
 ];
 
 function statusBadgeVariant(status: TicketStatus) {
@@ -50,6 +52,21 @@ function prioridadeClass(prioridade?: string | null) {
       return "text-emerald-300";
     default:
       return "text-slate-300";
+  }
+}
+
+function origemMeta(origem?: string | null) {
+  switch ((origem || "").toUpperCase()) {
+    case "WHATSAPP":
+      return { label: "WhatsApp", icon: MessageCircle, className: "text-green-400" };
+    case "EMAIL":
+      return { label: "Email", icon: Mail, className: "text-sky-400" };
+    case "TELEFONE":
+      return { label: "Telefone", icon: Phone, className: "text-amber-300" };
+    case "WEB":
+      return { label: "Web", icon: Globe, className: "text-violet-300" };
+    default:
+      return { label: "Origem não informada", icon: Globe, className: "text-slate-400" };
   }
 }
 
@@ -97,7 +114,7 @@ export default function TicketsPage() {
 
   const tickets: Ticket[] = data?.data.items ?? [];
 
-  const { data: authMe } = useQuery<{ tenantId?: string }>({
+  const { data: authMe } = useQuery<{ tenantId?: string; name?: string; email?: string }>({
     queryKey: ["auth-me"],
     queryFn: async () => {
       const res = await api.get("/api/v1/auth/me");
@@ -105,10 +122,18 @@ export default function TicketsPage() {
     },
   });
 
-  const handleWhatsApp = (phone: string) => {
-    const digits = phone.replace(/\D/g, "");
-    if (!digits) return;
-    window.open(`https://wa.me/${digits}`, "_blank");
+  const handleWhatsApp = (ticket: Ticket) => {
+    const whatsappUrl = buildWhatsAppSendUrl({
+      phone: ticket.cliente?.whatsappNumber || ticket.contatoWpp,
+      operatorName: authMe?.name || authMe?.email,
+      clientName: ticket.cliente?.nome,
+      ticketNumber: ticket.pedido,
+      requestSummary: ticket.solicitacao,
+      companyName: ticket.empresa,
+    });
+
+    if (!whatsappUrl) return;
+    window.open(whatsappUrl, "_blank");
   };
 
   const handleCreateKanbanTask = async (ticket: Ticket) => {
@@ -337,11 +362,15 @@ export default function TicketsPage() {
                       </td>
                     </tr>
                   ) : (
-                    tickets.map((ticket) => (
-                      <tr
-                        key={ticket.id}
-                        className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                      >
+                    tickets.map((ticket) => {
+                      const origem = origemMeta(ticket.origem);
+                      const OrigemIcon = origem.icon;
+
+                      return (
+                        <tr
+                          key={ticket.id}
+                          className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                        >
                         <td className="p-4 text-sm text-white font-medium">#{ticket.pedido}</td>
                         <td className="p-4 text-sm text-slate-300">{ticket.empresa ?? "--"}</td>
                         <td className="p-4 text-sm text-slate-300">{ticket.responsavel ?? "--"}</td>
@@ -358,8 +387,15 @@ export default function TicketsPage() {
                         <td className="p-4 text-sm text-slate-300 max-w-xs truncate" title={ticket.solicitacao || ""}>
                           {ticket.solicitacao ? ticket.solicitacao : "--"}
                         </td>
-                        <td className="p-4 text-sm text-slate-300">
-                          <div className="flex items-center gap-2">
+                          <td className="p-4 text-sm text-slate-300">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="inline-flex items-center justify-center rounded-full bg-white/5 p-1"
+                                title={`Origem: ${origem.label}`}
+                                aria-label={`Origem: ${origem.label}`}
+                              >
+                                <OrigemIcon className={`h-3.5 w-3.5 ${origem.className}`} />
+                              </span>
                             <span className="font-medium text-white truncate max-w-[150px]" title={ticket.cliente?.nome || ticket.contatoWpp}>
                               {ticket.cliente?.nome || ticket.contatoWpp || "--"}
                             </span>
@@ -378,7 +414,7 @@ export default function TicketsPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleWhatsApp(ticket.cliente?.whatsappNumber || ticket.contatoWpp);
+                                    handleWhatsApp(ticket);
                                   }}
                                   className="text-green-400 hover:text-green-300 p-1 rounded hover:bg-white/5 transition-colors"
                                   title="WhatsApp"
@@ -397,8 +433,8 @@ export default function TicketsPage() {
                                 </a>
                               )}
                             </div>
-                          </div>
-                        </td>  
+                            </div>
+                          </td>
                         <td className="p-4 text-sm text-slate-400">
                           {new Date(ticket.createdAt).toLocaleString("pt-BR")}
                         </td>
@@ -427,8 +463,9 @@ export default function TicketsPage() {
                             </Button>
                           </div>
                         </td>
-                      </tr>
-                    ))
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

@@ -2,6 +2,7 @@ export type TicketMetricsStatus =
   | 'SOLICITADO'
   | 'PENDENTE_ATENDIMENTO'
   | 'EM_ATENDIMENTO'
+  | 'EM_PROCESSO_LOGISTICO'
   | 'CONCLUIDO'
   | 'CANCELADO';
 
@@ -30,4 +31,3 @@ export interface TicketMetricsResult {
   averageTimeInStatusMinutes: MetricsStatusCounts;
   technical: TechnicalMetrics;
 }
-
