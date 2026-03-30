@@ -106,4 +106,9 @@ export interface DashboardExportParams {
   from?: string;
   to?: string;
   fornecedorId?: string;
+  clienteId?: string;
+  cliente?: string;
+  status?: string | string[];
+  quantidadeMin?: number;
+  quantidadeMax?: number;
 }

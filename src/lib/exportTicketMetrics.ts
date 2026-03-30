@@ -5,7 +5,8 @@ import { TicketMetrics } from '@/lib/api';
  */
 export function exportTicketMetricsToCSV(
   metrics: TicketMetrics | undefined,
-  tenantName: string
+  tenantName: string,
+  selectedPeriodLabel?: string
 ): void {
   if (!metrics) {
     console.warn('No metrics data available for export');
@@ -21,6 +22,7 @@ export function exportTicketMetricsToCSV(
   // Header
   lines.push(`Relatório de Métricas - ${tenantName}`);
   lines.push(`Data de Geração: ${now.toLocaleString('pt-BR')}`);
+  lines.push(`Período Selecionado: ${selectedPeriodLabel ?? 'Todo o período'}`);
   lines.push('');
 
   // Summary metrics
@@ -35,8 +37,9 @@ export function exportTicketMetricsToCSV(
   lines.push(`Tickets Solicitados,${metrics.statusCounts?.SOLICITADO ?? 0}`);
   lines.push(`Tickets Pendentes,${metrics.statusCounts?.PENDENTE_ATENDIMENTO ?? 0}`);
   lines.push(`Tickets em Atendimento,${metrics.statusCounts?.EM_ATENDIMENTO ?? 0}`);
+  lines.push(`Tickets em Logística,${metrics.statusCounts?.EM_PROCESSO_LOGISTICO ?? 0}`);
   lines.push(`Tickets Concluídos,${metrics.statusCounts?.CONCLUIDO ?? 0}`);
-  lines.push(`Tickets Cancelados,${metrics.statusCounts?.CANCELADO ?? 0}`);
+  lines.push(`Tickets Recusados,${metrics.statusCounts?.CANCELADO ?? 0}`);
 
   if (metrics.averageTimeToFirstAttendanceMinutes != null) {
     lines.push(
@@ -72,7 +75,8 @@ export function exportTicketMetricsToCSV(
  */
 export function exportTicketMetricsToPDF(
   metrics: TicketMetrics | undefined,
-  tenantName: string
+  tenantName: string,
+  selectedPeriodLabel?: string
 ): void {
   if (!metrics) {
     console.warn('No metrics data available for export');
@@ -179,6 +183,7 @@ export function exportTicketMetricsToPDF(
 
       <div class="header-info">
         <strong>Data de Geração:</strong> ${now.toLocaleString('pt-BR')}<br>
+        <strong>Período Selecionado:</strong> ${selectedPeriodLabel ?? 'Todo o período'}<br>
       </div>
 
       <h2>Resumo Geral</h2>
@@ -200,11 +205,15 @@ export function exportTicketMetricsToPDF(
           <div class="metric-value">${metrics.statusCounts?.EM_ATENDIMENTO ?? 0}</div>
         </div>
         <div class="metric-card">
+          <div class="metric-label">Tickets em Logística</div>
+          <div class="metric-value">${metrics.statusCounts?.EM_PROCESSO_LOGISTICO ?? 0}</div>
+        </div>
+        <div class="metric-card">
           <div class="metric-label">Tickets Concluídos</div>
           <div class="metric-value">${metrics.statusCounts?.CONCLUIDO ?? 0}</div>
         </div>
         <div class="metric-card">
-          <div class="metric-label">Tickets Cancelados</div>
+          <div class="metric-label">Tickets Recusados</div>
           <div class="metric-value">${metrics.statusCounts?.CANCELADO ?? 0}</div>
         </div>
         ${

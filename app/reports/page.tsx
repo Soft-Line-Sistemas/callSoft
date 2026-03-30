@@ -93,10 +93,26 @@ export default function ReportsPage() {
           { name: "Solicitado", value: metrics.statusCounts.SOLICITADO, color: "#f59e0b" },
           { name: "Pendente", value: metrics.statusCounts.PENDENTE_ATENDIMENTO, color: "#3b82f6" },
           { name: "Em Atendimento", value: metrics.statusCounts.EM_ATENDIMENTO, color: "#8b5cf6" },
+          { name: "Em Logística", value: metrics.statusCounts.EM_PROCESSO_LOGISTICO, color: "#06b6d4" },
           { name: "Concluído", value: metrics.statusCounts.CONCLUIDO, color: "#22c55e" },
-          { name: "Cancelado", value: metrics.statusCounts.CANCELADO, color: "#ef4444" },
+          { name: "Recusado", value: metrics.statusCounts.CANCELADO, color: "#ef4444" },
         ]
       : [];
+
+  const formatInputDate = (value: string): string => {
+    if (!value) return "";
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString("pt-BR");
+  };
+
+  const selectedPeriodLabel =
+    startDate && endDate
+      ? `${formatInputDate(startDate)} - ${formatInputDate(endDate)}`
+      : startDate
+      ? `A partir de ${formatInputDate(startDate)}`
+      : endDate
+      ? `Até ${formatInputDate(endDate)}`
+      : "Todo o período";
 
   // Close export menu when clicking outside
   useEffect(() => {
@@ -124,9 +140,9 @@ export default function ReportsPage() {
 
     try {
       if (format === 'pdf') {
-        exportTicketMetricsToPDF(metrics, "Relatórios");
+        exportTicketMetricsToPDF(metrics, "Relatórios", selectedPeriodLabel);
       } else {
-        exportTicketMetricsToCSV(metrics, "Relatórios");
+        exportTicketMetricsToCSV(metrics, "Relatórios", selectedPeriodLabel);
       }
     } catch (error) {
       console.error('Error exporting:', error);
@@ -147,6 +163,10 @@ export default function ReportsPage() {
             <div>
               <h1 className="text-3xl font-bold text-white">Relatórios</h1>
               <p className="mt-2 text-slate-400">Análises e métricas do sistema</p>
+              <p className="mt-2 text-slate-300 text-sm flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <span>Período selecionado: {selectedPeriodLabel}</span>
+              </p>
             </div>
             <div className="flex gap-3 items-center">
               <div className="flex items-center gap-2 bg-white/5 rounded-lg border border-white/10 p-1">
@@ -268,6 +288,8 @@ export default function ReportsPage() {
                             borderRadius: "8px",
                             color: "#fff",
                           }}
+                          labelStyle={{ color: "#fff" }}
+                          itemStyle={{ color: "#fff" }}
                         />
                         <Bar dataKey="value" name="Tickets" radius={[0, 4, 4, 0]}>
                           {statusDistribution.map((entry, index) => (

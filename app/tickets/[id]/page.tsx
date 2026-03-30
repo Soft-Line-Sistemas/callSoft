@@ -16,6 +16,7 @@ import { TicketChat } from "@/components/features/TicketChat";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { downloadBlob } from "@/lib/download";
 import { isEmailContact } from "@/lib/contact";
+import { buildWhatsAppSendUrl } from "@/lib/whatsapp";
 
 type TicketHistoryItem = {
   id: number;
@@ -119,7 +120,8 @@ function statusBadgeVariant(status: TicketStatus) {
 const ALLOWED_STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   SOLICITADO: ["PENDENTE_ATENDIMENTO"],
   PENDENTE_ATENDIMENTO: ["EM_ATENDIMENTO"],
-  EM_ATENDIMENTO: ["CONCLUIDO", "CANCELADO"],
+  EM_ATENDIMENTO: ["EM_PROCESSO_LOGISTICO", "CANCELADO"],
+  EM_PROCESSO_LOGISTICO: ["CONCLUIDO"],
   CONCLUIDO: [],
   CANCELADO: [],
 };
@@ -138,6 +140,15 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const [cotacaoLocale, setCotacaoLocale] = useState<"pt-BR" | "en-US">("pt-BR");
   const [isUpdatingCotacaoStatus, setIsUpdatingCotacaoStatus] = useState(false);
   const [isSendingCotacao, setIsSendingCotacao] = useState(false);
+  const [ticketMotivoRecusa, setTicketMotivoRecusa] = useState("");
+
+  const { data: authMe } = useQuery<{ name?: string; email?: string }>({
+    queryKey: ["auth-me"],
+    queryFn: async () => {
+      const res = await api.get("/api/v1/auth/me");
+      return res.data.data;
+    },
+  });
 
   const { data: ticket, isLoading, refetch } = useQuery<TicketDetail>({
     queryKey: ["ticket-detail", params.id],
@@ -166,24 +177,40 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
 
   const whatsappUrl = useMemo(() => {
     if (isEmailTicket) return null;
-    const digits = ticket?.contatoWpp?.replace(/\D/g, "");
-    return digits ? `https://wa.me/${digits}` : null;
-  }, [ticket?.contatoWpp, isEmailTicket]);
+    return buildWhatsAppSendUrl({
+      phone: ticket?.cliente?.whatsappNumber || ticket?.cliente?.telefone || ticket?.contatoWpp,
+      operatorName: authMe?.name || authMe?.email,
+      clientName: ticket?.cliente?.nome,
+      ticketNumber: ticket?.pedido,
+      requestSummary: ticket?.solicitacao,
+      companyName: ticket?.empresa,
+    });
+  }, [authMe?.email, authMe?.name, isEmailTicket, ticket?.cliente?.nome, ticket?.cliente?.telefone, ticket?.cliente?.whatsappNumber, ticket?.contatoWpp, ticket?.empresa, ticket?.pedido, ticket?.solicitacao]);
 
   const canTransitionTo = (current: TicketStatus, next: TicketStatus) =>
     (ALLOWED_STATUS_TRANSITIONS[current] ?? []).includes(next);
 
-  const transitionStatus = async (status: TicketStatus) => {
+  const transitionStatus = async (
+    status: TicketStatus,
+    options?: { motivo?: string; cotacaoId?: string },
+  ) => {
     if (!ticket) return;
     setIsUpdatingStatus(true);
     try {
-      await api.post(`/api/v1/tickets/${ticket.id}/status`, { status });
+      await api.post(`/api/v1/tickets/${ticket.id}/status`, {
+        status,
+        motivo: options?.motivo || undefined,
+        cotacaoId: options?.cotacaoId || undefined,
+      });
       addNotification({
         title: "Status atualizado",
         message: `Ticket atualizado para ${status.replace(/_/g, " ")}.`,
         type: "success",
         category: "system",
       });
+      if (status === "CANCELADO") {
+        setTicketMotivoRecusa("");
+      }
       await refetch();
     } catch (error: any) {
       addNotification({
@@ -196,6 +223,14 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       setIsUpdatingStatus(false);
     }
   };
+
+  const linkedCotacaoId = useMemo(() => {
+    if (!ticket?.cotacoes?.length) return undefined;
+    const cotacaoOrdenada = [...ticket.cotacoes].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    return cotacaoOrdenada[0]?.id;
+  }, [ticket?.cotacoes]);
 
   const handleSaveTicket = async (data: { empresa?: string; responsavel?: string; prioridade?: string; contatoNome?: string }) => {
     if (!ticket) return;
@@ -339,14 +374,13 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               .filter(Boolean)
               .join("\n");
 
-      await api.post(`/api/v1/tickets/${ticket.id}/messages`, {
+      await api.post(`/api/v1/cotacoes/${cotacaoDetail.id}/send-whatsapp`, {
         message,
-        isInternal: false,
       });
 
       addNotification({
         title: "Proposta enviada",
-        message: "A proposta comercial foi enviada pelo chat e o status foi atualizado.",
+        message: "A proposta foi enviada via WhatsApp com anexos PDF e XLSX, e o status foi atualizado.",
         type: "success",
         category: "system",
       });
@@ -456,7 +490,6 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                         { value: "PENDENTE_ATENDIMENTO", label: "Pendente" },
                         { value: "EM_ATENDIMENTO", label: "Em atendimento" },
                         { value: "CONCLUIDO", label: "Concluir" },
-                        { value: "CANCELADO", label: "Cancelar" },
                       ] as { value: TicketStatus; label: string }[]).map((option) => {
                         const isActive = ticket.status === option.value;
                         const canTransition = canTransitionTo(ticket.status, option.value);
@@ -479,6 +512,44 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                           </Button>
                         );
                       })}
+                      <Button
+                        variant="outline"
+                        disabled={
+                          isUpdatingStatus ||
+                          !canTransitionTo(ticket.status, "EM_PROCESSO_LOGISTICO")
+                        }
+                        onClick={() =>
+                          transitionStatus("EM_PROCESSO_LOGISTICO", {
+                            cotacaoId: linkedCotacaoId,
+                          })
+                        }
+                      >
+                        Aceita
+                      </Button>
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={ticketMotivoRecusa}
+                          onChange={(event) => setTicketMotivoRecusa(event.target.value)}
+                          className="w-56 rounded-lg bg-slate-900/50 border border-slate-700 p-2 text-slate-100 text-sm"
+                          placeholder="Motivo da recusa"
+                        />
+                        <Button
+                          variant="outline"
+                          disabled={
+                            isUpdatingStatus ||
+                            !canTransitionTo(ticket.status, "CANCELADO") ||
+                            !ticketMotivoRecusa.trim()
+                          }
+                          onClick={() =>
+                            transitionStatus("CANCELADO", {
+                              motivo: ticketMotivoRecusa.trim(),
+                              cotacaoId: linkedCotacaoId,
+                            })
+                          }
+                        >
+                          Recusada
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

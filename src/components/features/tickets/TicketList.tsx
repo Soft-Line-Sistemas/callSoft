@@ -18,6 +18,7 @@ const statusVariant: Record<TicketStatus, 'success' | 'warning' | 'info' | 'dest
   ABERTO: 'warning',
   PENDENTE_ATENDIMENTO: 'info',
   EM_ATENDIMENTO: 'info',
+  EM_PROCESSO_LOGISTICO: 'info',
   CONCLUIDO: 'success',
   CANCELADO: 'destructive',
 };

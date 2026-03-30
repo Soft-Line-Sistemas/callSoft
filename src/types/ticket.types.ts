@@ -8,6 +8,7 @@ export enum TicketStatus {
   ABERTO = 'ABERTO',
   PENDENTE_ATENDIMENTO = 'PENDENTE_ATENDIMENTO',
   EM_ATENDIMENTO = 'EM_ATENDIMENTO',
+  EM_PROCESSO_LOGISTICO = 'EM_PROCESSO_LOGISTICO',
   CONCLUIDO = 'CONCLUIDO',
   CANCELADO = 'CANCELADO',
 }
@@ -81,6 +82,8 @@ export interface TicketListFilters extends PaginationParams {
 export interface TransitionTicketStatusRequest {
   status: TicketStatus;
   observacao?: string;
+  motivo?: string;
+  cotacaoId?: string;
 }
 
 /**

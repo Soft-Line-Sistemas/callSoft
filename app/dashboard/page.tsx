@@ -4,7 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusPieChart } from "@/components/charts/StatusPieChart";
 import { OpenTicketsKpi } from "@/components/ui/KpiCard";
-import { Ticket as TicketIcon, MessageCircle, CheckCircle, Clock, Download, FileText, FileSpreadsheet } from "lucide-react";
+import { Ticket as TicketIcon, MessageCircle, CheckCircle, Clock, Download, FileText, FileSpreadsheet, Calendar } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/Badge";
@@ -21,18 +21,55 @@ export default function DashboardPage() {
     const { data: authUser } = useAuth();
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [startDate, setStartDate] = useState(() => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    });
+    const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
     const exportMenuRef = useRef<HTMLDivElement>(null);
 
-    const { currentRange, previousRange } = useMemo(() => {
+    const { currentRange, previousRange, appliedStartDate, appliedEndDate } = useMemo(() => {
         const now = new Date();
-        const currentFrom = new Date(now.getFullYear(), now.getMonth(), 1);
-        const previousFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const previousTo = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-        return {
-            currentRange: { from: currentFrom, to: now },
-            previousRange: { from: previousFrom, to: previousTo },
+        const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+        const defaultEnd = now.toISOString().slice(0, 10);
+        const safeStartDate = startDate || defaultStart;
+        const safeEndDate = endDate || defaultEnd;
+
+        const parseInputDate = (value: string, endOfDay = false) => {
+            const [year, month, day] = value.split("-").map(Number);
+            return endOfDay
+                ? new Date(year, month - 1, day, 23, 59, 59, 999)
+                : new Date(year, month - 1, day, 0, 0, 0, 0);
         };
-    }, []);
+
+        let currentFrom = parseInputDate(safeStartDate);
+        let currentTo = parseInputDate(safeEndDate, true);
+
+        if (currentFrom.getTime() > currentTo.getTime()) {
+            const swappedFrom = parseInputDate(safeEndDate);
+            const swappedTo = parseInputDate(safeStartDate, true);
+            currentFrom = swappedFrom;
+            currentTo = swappedTo;
+        }
+
+        const rangeDurationMs = currentTo.getTime() - currentFrom.getTime() + 1;
+        const previousTo = new Date(currentFrom.getTime() - 1);
+        const previousFrom = new Date(previousTo.getTime() - rangeDurationMs + 1);
+
+        return {
+            currentRange: { from: currentFrom, to: currentTo },
+            previousRange: { from: previousFrom, to: previousTo },
+            appliedStartDate: currentFrom.toISOString().slice(0, 10),
+            appliedEndDate: currentTo.toISOString().slice(0, 10),
+        };
+    }, [startDate, endDate]);
+
+    const formatInputDate = (value: string): string => {
+        const [year, month, day] = value.split("-").map(Number);
+        return new Date(year, month - 1, day).toLocaleDateString("pt-BR");
+    };
+
+    const selectedPeriodLabel = `${formatInputDate(appliedStartDate)} - ${formatInputDate(appliedEndDate)}`;
 
     const { data: metricsCurrent, isLoading: isLoadingMetrics } = useQuery<TicketMetrics>({
         queryKey: ["dashboard-metrics-current", currentRange.from.toISOString(), currentRange.to.toISOString()],
@@ -73,7 +110,10 @@ export default function DashboardPage() {
     const totalTickets = statusCounts ? Object.values(statusCounts).reduce((acc, value) => acc + value, 0) : 0;
     const novosTickets = statusCounts?.SOLICITADO ?? 0;
     const resolvidosTickets = statusCounts?.CONCLUIDO ?? 0;
-    const emAbertoTickets = (statusCounts?.PENDENTE_ATENDIMENTO ?? 0) + (statusCounts?.EM_ATENDIMENTO ?? 0);
+    const emAbertoTickets =
+        (statusCounts?.PENDENTE_ATENDIMENTO ?? 0) +
+        (statusCounts?.EM_ATENDIMENTO ?? 0) +
+        (statusCounts?.EM_PROCESSO_LOGISTICO ?? 0);
     const previousTotalTickets = previousStatusCounts
         ? Object.values(previousStatusCounts).reduce((acc, value) => acc + value, 0)
         : 0;
@@ -141,8 +181,9 @@ export default function DashboardPage() {
         { name: "Solicitado", value: metricsCurrent.statusCounts.SOLICITADO, color: "#f59e0b" },
         { name: "Pendente", value: metricsCurrent.statusCounts.PENDENTE_ATENDIMENTO, color: "#3b82f6" },
         { name: "Em Atendimento", value: metricsCurrent.statusCounts.EM_ATENDIMENTO, color: "#8b5cf6" },
+        { name: "Em Logística", value: metricsCurrent.statusCounts.EM_PROCESSO_LOGISTICO, color: "#06b6d4" },
         { name: "Concluído", value: metricsCurrent.statusCounts.CONCLUIDO, color: "#22c55e" },
-        { name: "Cancelado", value: metricsCurrent.statusCounts.CANCELADO, color: "#ef4444" },
+        { name: "Recusado", value: metricsCurrent.statusCounts.CANCELADO, color: "#ef4444" },
     ] : [];
 
     const recentTickets = recentTicketsData?.items || [];
@@ -182,9 +223,9 @@ export default function DashboardPage() {
 
         try {
             if (format === 'pdf') {
-                exportTicketMetricsToPDF(metricsCurrent, tenantName);
+                exportTicketMetricsToPDF(metricsCurrent, tenantName, selectedPeriodLabel);
             } else {
-                exportTicketMetricsToCSV(metricsCurrent, tenantName);
+                exportTicketMetricsToCSV(metricsCurrent, tenantName, selectedPeriodLabel);
             }
         } catch (error) {
             console.error('Error exporting:', error);
@@ -211,8 +252,29 @@ export default function DashboardPage() {
                             <p className="mt-1 text-slate-400 text-sm ml-4">
                                 Visão geral de métricas e performance
                             </p>
+                            <p className="mt-2 text-slate-300 text-sm ml-4 flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-slate-400" />
+                                <span>Período selecionado: {selectedPeriodLabel}</span>
+                            </p>
                         </div>
                         <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 bg-white/5 rounded-lg border border-white/10 p-1">
+                                <input
+                                    type="date"
+                                    className="bg-transparent text-slate-200 text-xs px-2 py-1 outline-none"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    title="Data Inicial"
+                                />
+                                <span className="text-slate-500 text-xs">-</span>
+                                <input
+                                    type="date"
+                                    className="bg-transparent text-slate-200 text-xs px-2 py-1 outline-none"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    title="Data Final"
+                                />
+                            </div>
                             <div className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-300 flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-slate-400" />
                                 <span>Hoje: {new Date().toLocaleDateString('pt-BR')}</span>
@@ -419,6 +481,7 @@ export default function DashboardPage() {
                                                 <td className="p-4 text-sm">
                                                     <Badge variant={
                                                         row.status === 'CONCLUIDO' ? 'success' :
+                                                        row.status === 'CANCELADO' ? 'destructive' :
                                                         row.status === 'SOLICITADO' ? 'warning' :
                                                         'info'
                                                     }>
