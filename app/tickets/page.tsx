@@ -388,51 +388,59 @@ export default function TicketsPage() {
                           {ticket.solicitacao ? ticket.solicitacao : "--"}
                         </td>
                           <td className="p-4 text-sm text-slate-300">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="inline-flex items-center justify-center rounded-full bg-white/5 p-1"
-                                title={`Origem: ${origem.label}`}
-                                aria-label={`Origem: ${origem.label}`}
-                              >
-                                <OrigemIcon className={`h-3.5 w-3.5 ${origem.className}`} />
-                              </span>
-                            <span className="font-medium text-white truncate max-w-[150px]" title={ticket.cliente?.nome || ticket.contatoWpp}>
-                              {ticket.cliente?.nome || ticket.contatoWpp || "--"}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditTicket(ticket);
-                                }}
-                                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5 transition-colors"
-                                title="Editar"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                              {(ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleWhatsApp(ticket);
-                                  }}
-                                  className="text-green-400 hover:text-green-300 p-1 rounded hover:bg-white/5 transition-colors"
-                                  title="WhatsApp"
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="inline-flex items-center justify-center rounded-full bg-white/5 p-1"
+                                  title={`Origem: ${origem.label}`}
+                                  aria-label={`Origem: ${origem.label}`}
                                 >
-                                  <MessageCircle className="h-4 w-4" />
-                                </button>
-                              )}
-                              {ticket.cliente?.email && (
-                                <a
-                                  href={`mailto:${ticket.cliente.email}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-sky-400 hover:text-sky-300 p-1 rounded hover:bg-white/5 transition-colors"
-                                  title={ticket.cliente.email}
-                                >
-                                  <Mail className="h-4 w-4" />
-                                </a>
-                              )}
-                            </div>
+                                  <OrigemIcon className={`h-3.5 w-3.5 ${origem.className}`} />
+                                </span>
+                                <span className="font-medium text-white truncate max-w-[150px]" title={ticket.cliente?.nome || ticket.contatoWpp}>
+                                  {ticket.cliente?.nome || ticket.contatoWpp || "--"}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-400 truncate max-w-[170px]">
+                                  {ticket.cliente?.telefone || ticket.cliente?.whatsappNumber || ticket.contatoWpp || "--"}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditTicket(ticket);
+                                    }}
+                                    className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5 transition-colors"
+                                    title="Editar"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  {(ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleWhatsApp(ticket);
+                                      }}
+                                      className="text-green-400 hover:text-green-300 p-1 rounded hover:bg-white/5 transition-colors"
+                                      title="WhatsApp"
+                                    >
+                                      <MessageCircle className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {ticket.cliente?.email && (
+                                    <a
+                                      href={`mailto:${ticket.cliente.email}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-sky-400 hover:text-sky-300 p-1 rounded hover:bg-white/5 transition-colors"
+                                      title={ticket.cliente.email}
+                                    >
+                                      <Mail className="h-4 w-4" />
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </td>
                         <td className="p-4 text-sm text-slate-400">
