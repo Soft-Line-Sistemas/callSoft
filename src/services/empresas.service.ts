@@ -45,6 +45,7 @@ export interface EmpresaContactsResponse {
   };
   contatos: Array<{
     contatoWpp: string;
+    contatoNome?: string | null;
     lastTicketId: string;
     lastStatus: string;
     lastUpdatedAt: string;

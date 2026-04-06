@@ -73,6 +73,7 @@ export interface CreatePublicTicketRequest {
 export interface TicketListFilters extends PaginationParams {
   status?: TicketStatus;
   text?: string;
+  contatoWpp?: string;
 }
 
 /**

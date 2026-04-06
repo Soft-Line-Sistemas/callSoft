@@ -24,6 +24,7 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
     });
 
     type QuoteFormData = Omit<CreateCotacaoRequest, "fornecedorId" | "empresaId"> & { empresaId: string };
+    const clampNonNegative = (value: number) => Math.max(0, value);
 
     const [formData, setFormData] = useState<QuoteFormData>({
         ticketId: params.id,
@@ -65,6 +66,11 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
         const precoUnitario = Number(item.precoUnitario) || 0;
         return sum + quantidade * precoUnitario;
     }, 0);
+    const totalItens = formData.itens.reduce((sum, item) => {
+        const quantidade = Number(item.quantidade) || 0;
+        return sum + quantidade;
+    }, 0);
+    const usdFormatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
     const valorGlobal = (() => {
         const desconto = Number(formData.descontoGlobal) || 0;
@@ -92,6 +98,15 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
             addNotification({
                 title: "Erro de Validação",
                 message: "Verifique os itens da cotação. Descrição e quantidade são obrigatórios.",
+                type: "error",
+                category: "system"
+            });
+            return;
+        }
+        if (formData.itens.some(i => (Number(i.precoUnitario) || 0) < 0) || (Number(formData.descontoGlobal) || 0) < 0) {
+            addNotification({
+                title: "Erro de Validação",
+                message: "Não são permitidos valores negativos na cotação.",
                 type: "error",
                 category: "system"
             });
@@ -132,7 +147,7 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
             <Header />
 
             <main className="ml-64 pt-16">
-                <div className="p-8 max-w-5xl mx-auto">
+                <div className="p-8 w-full">
                     <div className="mb-6 flex items-center gap-4 animate-slide-up">
                         <Button variant="ghost" onClick={() => router.back()}>
                             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -186,7 +201,8 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
                             </CardHeader>
                             <CardContent className="space-y-4">
                         {formData.itens.map((item, index) => (
-                          <div key={index} className="grid grid-cols-12 gap-4 items-end bg-white/5 p-4 rounded-lg border border-white/5">
+                          <div key={index} className="bg-white/5 p-4 rounded-lg border border-white/5 space-y-2">
+                          <div className="grid grid-cols-12 gap-4 items-end">
                             <div className="col-span-2">
                               <label className="block text-xs text-slate-400 mb-1">Código</label>
                               <Input
@@ -195,7 +211,7 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
                                 placeholder="SKU-123"
                               />
                             </div>
-                            <div className="col-span-4">
+                            <div className="col-span-3">
                               <label className="block text-xs text-slate-400 mb-1">Descrição *</label>
                               <Input
                                 value={item.descricao}
@@ -204,14 +220,21 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
                                 required
                               />
                             </div>
-                            <div className="col-span-2">
+                            <div className="col-span-1">
                               <label className="block text-xs text-slate-400 mb-1">Qtd *</label>
                               <Input
                                 type="number"
-                                min="0.01"
-                                step="0.01"
+                                min="1"
+                                step="1"
                                 value={item.quantidade}
-                                onChange={(e) => updateItem(index, "quantidade", parseFloat(e.target.value))}
+                                onChange={(e) => {
+                                  const quantidade = Number.parseInt(e.target.value, 10);
+                                  if (Number.isNaN(quantidade)) {
+                                    updateItem(index, "quantidade", 1);
+                                    return;
+                                  }
+                                  updateItem(index, "quantidade", Math.max(1, quantidade));
+                                }}
                                 required
                               />
                             </div>
@@ -223,18 +246,26 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
                               />
                             </div>
                             <div className="col-span-2">
-                              <label className="block text-xs text-slate-400 mb-1">Valor Unit. *</label>
+                              <label className="block text-xs text-slate-400 mb-1">Valor Unit. (USD) *</label>
                               <Input
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 value={item.precoUnitario}
                                 onChange={(e) => {
-                                  const val = e.target.value;
-                                  updateItem(index, "precoUnitario", val === "" ? "" : parseFloat(val));
+                                  const precoUnitario = Number.parseFloat(e.target.value);
+                                  updateItem(index, "precoUnitario", Number.isNaN(precoUnitario) ? 0 : clampNonNegative(precoUnitario));
                                 }}
                                 placeholder="0.00"
                                 required
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-xs text-slate-400 mb-1">Total Item</label>
+                              <Input
+                                type="text"
+                                value={usdFormatter.format((Number(item.quantidade) || 0) * (Number(item.precoUnitario) || 0))}
+                                readOnly
                               />
                             </div>
                             <div className="col-span-1 flex justify-end">
@@ -250,7 +281,32 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
                               </Button>
                             </div>
                           </div>
+                          <p className="text-xs text-slate-300">
+                            Cálculo: {item.quantidade || 0} x {usdFormatter.format(Number(item.precoUnitario) || 0)} ={" "}
+                            <span className="font-semibold text-emerald-400">
+                              {usdFormatter.format((Number(item.quantidade) || 0) * (Number(item.precoUnitario) || 0))}
+                            </span>
+                          </p>
+                          </div>
                         ))}
+
+                        <div className="rounded-lg border border-white/10 bg-slate-900/40 p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <p className="text-xs text-slate-400">Total de Itens (quantidades)</p>
+                                    <p className="text-lg font-semibold text-white">{totalItens}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-400">Subtotal dos Itens (USD)</p>
+                                    <p className="text-lg font-semibold text-emerald-400">{usdFormatter.format(subtotal)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-400">Valor Global (USD)</p>
+                                    <p className="text-lg font-semibold text-purple-300">{usdFormatter.format(valorGlobal)}</p>
+                                </div>
+                            </div>
+                        </div>
+
                       </CardContent>
                         </Card>
 
@@ -286,13 +342,19 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Desconto Global</label>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">Desconto Global (USD)</label>
                                     <div className="flex gap-2">
                                         <Input
                                             type="number"
                                             min="0"
                                             value={formData.descontoGlobal || ""}
-                                            onChange={(e) => setFormData({...formData, descontoGlobal: parseFloat(e.target.value) || 0})}
+                                            onChange={(e) => {
+                                                const desconto = Number.parseFloat(e.target.value);
+                                                setFormData({
+                                                    ...formData,
+                                                    descontoGlobal: Number.isNaN(desconto) ? 0 : clampNonNegative(desconto)
+                                                });
+                                            }}
                                             placeholder="0.00"
                                             className="flex-1"
                                         />
@@ -301,18 +363,21 @@ export default function NewQuotePage({ params }: { params: { id: string } }) {
                                             value={formData.descontoTipo}
                                             onChange={(e) => setFormData({...formData, descontoTipo: e.target.value as any})}
                                         >
-                                            <option value="VALOR_ABSOLUTO">R$</option>
+                                            <option value="VALOR_ABSOLUTO">$</option>
                                             <option value="PERCENTUAL">%</option>
                                         </select>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Valor Global</label>
-                                    <Input
-                                        type="text"
-                                        value={valorGlobal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                                        readOnly
-                                    />
+                                    <p className="mt-2 text-xs text-slate-400">
+                                        {formData.descontoTipo === "VALOR_ABSOLUTO"
+                                            ? `Equivalente a ${
+                                                subtotal > 0
+                                                    ? `${((Number(formData.descontoGlobal) || 0) / subtotal * 100).toFixed(2)}%`
+                                                    : "0.00%"
+                                            } do subtotal`
+                                            : `Equivalente a ${usdFormatter.format(
+                                                subtotal * ((Number(formData.descontoGlobal) || 0) / 100)
+                                            )} de desconto`}
+                                    </p>
                                 </div>
                                 <div className="md:col-span-3">
                                     <label className="block text-sm font-medium text-slate-300 mb-2">Observações</label>

@@ -136,7 +136,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
   const [cotacaoStatus, setCotacaoStatus] = useState<string>("");
   const [cotacaoObservacao, setCotacaoObservacao] = useState("");
   const [cotacaoMotivo, setCotacaoMotivo] = useState("");
-  const [cotacaoCurrency, setCotacaoCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
+  const [cotacaoCurrency, setCotacaoCurrency] = useState<"BRL" | "USD" | "EUR">("USD");
   const [cotacaoLocale, setCotacaoLocale] = useState<"pt-BR" | "en-US">("pt-BR");
   const [isUpdatingCotacaoStatus, setIsUpdatingCotacaoStatus] = useState(false);
   const [isSendingCotacao, setIsSendingCotacao] = useState(false);
@@ -172,6 +172,38 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       setCotacaoStatus(cotacaoDetail.status);
     }
   }, [cotacaoDetail?.status]);
+
+  const cotacaoTotalItens = useMemo(
+    () =>
+      (cotacaoDetail?.itens ?? []).reduce((sum, item) => {
+        const quantidade = Number(item.quantidade) || 0;
+        return sum + quantidade;
+      }, 0),
+    [cotacaoDetail?.itens],
+  );
+
+  const cotacaoSubtotal = useMemo(
+    () =>
+      (cotacaoDetail?.itens ?? []).reduce((sum, item) => {
+        const quantidade = Number(item.quantidade) || 0;
+        const precoUnitario = Number(item.precoUnitario) || 0;
+        return sum + quantidade * precoUnitario;
+      }, 0),
+    [cotacaoDetail?.itens],
+  );
+
+  const cotacaoValorGlobal = useMemo(() => {
+    if (!cotacaoDetail) return 0;
+    const desconto = Number(cotacaoDetail.descontoGlobal) || 0;
+    if (!desconto) return cotacaoSubtotal;
+    if (cotacaoDetail.descontoTipo === "PERCENTUAL") {
+      return cotacaoSubtotal * (1 - desconto / 100);
+    }
+    return Math.max(0, cotacaoSubtotal - desconto);
+  }, [cotacaoDetail, cotacaoSubtotal]);
+
+  const formatCotacaoAmount = (value: number | null | undefined) =>
+    value != null ? value.toLocaleString(cotacaoLocale, { style: "currency", currency: cotacaoCurrency }) : "--";
 
   const isEmailTicket = useMemo(() => isEmailContact(ticket?.contatoWpp), [ticket?.contatoWpp]);
 
@@ -309,7 +341,9 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
 
   const handleSendCotacao = async () => {
     if (!ticket || !cotacaoDetail) return;
-    const canSend = (ALLOWED_COTACAO_TRANSITIONS[cotacaoDetail.status] ?? []).includes("ENVIADA");
+    const canSend =
+      cotacaoDetail.status === "ENVIADA" ||
+      (ALLOWED_COTACAO_TRANSITIONS[cotacaoDetail.status] ?? []).includes("ENVIADA");
     if (!canSend) {
       addNotification({
         title: "Status inválido",
@@ -322,10 +356,13 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
 
     setIsSendingCotacao(true);
     try {
-      await api.post(`/api/v1/cotacoes/${cotacaoDetail.id}/status`, {
-        status: "ENVIADA",
-        observacao: "Proposta comercial enviada via chat",
-      });
+      // Permite reenvio quando já estiver em ENVIADA.
+      if (cotacaoDetail.status !== "ENVIADA") {
+        await api.post(`/api/v1/cotacoes/${cotacaoDetail.id}/status`, {
+          status: "ENVIADA",
+          observacao: "Proposta comercial enviada via chat",
+        });
+      }
 
       const formatCurrency = (value: number | null | undefined) =>
         value != null ? value.toLocaleString(cotacaoLocale, { style: "currency", currency: cotacaoCurrency }) : "--";
@@ -673,7 +710,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       )}
 
       <Dialog open={isCotacaoDialogOpen} onOpenChange={setIsCotacaoDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-6xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalhes da Cotação</DialogTitle>
           </DialogHeader>
@@ -683,7 +720,8 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             <div className="text-slate-400">Cotação não encontrada.</div>
           ) : (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <p className="text-slate-400">Número</p>
                   <p className="text-slate-200">#{cotacaoDetail.numero}</p>
@@ -699,9 +737,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                 <div>
                   <p className="text-slate-400">Valor total</p>
                   <p className="text-slate-200">
-                    {cotacaoDetail.valorTotal != null
-                      ? cotacaoDetail.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-                      : "--"}
+                    {formatCotacaoAmount(cotacaoDetail.valorTotal)}
                   </p>
                 </div>
                 <div>
@@ -717,106 +753,149 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   </p>
                 </div>
               </div>
-
-              <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
-                <div>
-                  <p className="text-sm text-slate-300 mb-2">Moeda para envio</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(["BRL", "USD", "EUR"] as const).map((currency) => (
-                      <Button
-                        key={currency}
-                        variant={cotacaoCurrency === currency ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCotacaoCurrency(currency)}
-                      >
-                        {currency === "BRL" ? "Real (BRL)" : currency === "USD" ? "Dólar (USD)" : "Euro (EUR)"}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-300 mb-2">Idioma da mensagem</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(["pt-BR", "en-US"] as const).map((locale) => (
-                      <Button
-                        key={locale}
-                        variant={cotacaoLocale === locale ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCotacaoLocale(locale)}
-                      >
-                        {locale === "pt-BR" ? "Português (pt-BR)" : "English (en-US)"}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
               </div>
 
-              {cotacaoDetail.observacoes && (
-                <div>
-                  <p className="text-sm text-slate-400">Observações</p>
-                  <p className="text-sm text-slate-200 whitespace-pre-wrap">{cotacaoDetail.observacoes}</p>
-                </div>
-              )}
-
-              <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                <p className="text-sm text-slate-300 mb-2">Itens</p>
-                <div className="space-y-2">
-                  {cotacaoDetail.itens.map((item) => (
-                    <div key={item.id} className="text-xs text-slate-200">
-                      <span className="font-medium">{item.descricao}</span>
-                      <span className="text-slate-400"> • {item.quantidade} {item.unidade}</span>
-                      {item.precoTotal != null && (
-                        <span className="text-slate-400">
-                          {" "}• {item.precoTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                        </span>
-                      )}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
+                  <div>
+                    <p className="text-sm text-slate-300 mb-2">Moeda para envio</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(["BRL", "USD", "EUR"] as const).map((currency) => (
+                        <Button
+                          key={currency}
+                          variant={cotacaoCurrency === currency ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCotacaoCurrency(currency)}
+                        >
+                          {currency === "BRL" ? "Real (BRL)" : currency === "USD" ? "Dólar (USD)" : "Euro (EUR)"}
+                        </Button>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-300 mb-2">Idioma da mensagem</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(["pt-BR", "en-US"] as const).map((locale) => (
+                        <Button
+                          key={locale}
+                          variant={cotacaoLocale === locale ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCotacaoLocale(locale)}
+                        >
+                          {locale === "pt-BR" ? "Português (pt-BR)" : "English (en-US)"}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
-                <p className="text-sm text-slate-300">Atualizar status</p>
-                <select
-                  className="w-full rounded-lg bg-slate-900/50 border border-slate-700 p-2 text-slate-100 text-sm"
-                  value={cotacaoStatus}
-                  onChange={(event) => setCotacaoStatus(event.target.value)}
-                >
-                  {COTACAO_STATUS_OPTIONS.map((status) => {
-                    const current = cotacaoDetail.status;
-                    const allowed = ALLOWED_COTACAO_TRANSITIONS[current] ?? [];
-                    const isDisabled = status !== current && !allowed.includes(status);
-                    return (
-                      <option key={status} value={status} disabled={isDisabled}>
-                        {status.replace(/_/g, " ")}
-                      </option>
-                    );
-                  })}
-                </select>
-                {cotacaoStatus === "REJEITADA" && (
+                <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                  <p className="text-sm text-slate-400 mb-2">Observações</p>
+                  <p className="text-sm text-slate-200 whitespace-pre-wrap">
+                    {cotacaoDetail.observacoes?.trim() || "--"}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-white/10 bg-white/5 p-4 lg:col-span-2">
+                  <p className="text-sm text-slate-300 mb-2">Itens</p>
+                  <div className="grid grid-cols-12 gap-2 text-xs text-slate-400 border-b border-white/10 pb-2 mb-2">
+                    <div className="col-span-4">Descrição</div>
+                    <div className="col-span-2">Qtd</div>
+                    <div className="col-span-2">Un</div>
+                    <div className="col-span-2 text-right">Valor Unit.</div>
+                    <div className="col-span-2 text-right">Total</div>
+                  </div>
+                  <div className="space-y-2">
+                    {cotacaoDetail.itens.map((item) => (
+                      <div key={item.id} className="space-y-1 py-1">
+                        <div className="grid grid-cols-12 gap-2 text-sm text-slate-200">
+                          <div className="col-span-4 font-medium">{item.descricao}</div>
+                          <div className="col-span-2">{item.quantidade}</div>
+                          <div className="col-span-2">{item.unidade}</div>
+                          <div className="col-span-2 text-right">
+                            {formatCotacaoAmount(item.precoUnitario)}
+                          </div>
+                          <div className="col-span-2 text-right">
+                            {formatCotacaoAmount(item.precoTotal)}
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          Cálculo: {item.quantidade || 0} x{" "}
+                          {formatCotacaoAmount(Number(item.precoUnitario) || 0)}{" "}
+                          ={" "}
+                          <span className="font-semibold text-emerald-400">
+                            {formatCotacaoAmount((Number(item.quantidade) || 0) * (Number(item.precoUnitario) || 0))}
+                          </span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-white/10 bg-slate-900/40 p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <p className="text-xs text-slate-400">Total de Itens (quantidades)</p>
+                        <p className="text-lg font-semibold text-white">{cotacaoTotalItens}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Subtotal dos Itens</p>
+                        <p className="text-lg font-semibold text-emerald-400">
+                          {formatCotacaoAmount(cotacaoSubtotal)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Valor Global</p>
+                        <p className="text-lg font-semibold text-purple-300">
+                          {formatCotacaoAmount(cotacaoValorGlobal)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3 lg:col-span-2">
+                  <p className="text-sm text-slate-300">Atualizar status</p>
+                  <select
+                    className="w-full rounded-lg bg-slate-900/50 border border-slate-700 p-2 text-slate-100 text-sm"
+                    value={cotacaoStatus}
+                    onChange={(event) => setCotacaoStatus(event.target.value)}
+                  >
+                    {COTACAO_STATUS_OPTIONS.map((status) => {
+                      const current = cotacaoDetail.status;
+                      const allowed = ALLOWED_COTACAO_TRANSITIONS[current] ?? [];
+                      const isDisabled = status !== current && !allowed.includes(status);
+                      return (
+                        <option key={status} value={status} disabled={isDisabled}>
+                          {status.replace(/_/g, " ")}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {cotacaoStatus === "REJEITADA" && (
+                    <textarea
+                      value={cotacaoMotivo}
+                      onChange={(event) => setCotacaoMotivo(event.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg bg-slate-900/50 border border-slate-700 p-2 text-slate-100 text-sm"
+                      placeholder="Motivo da rejeição"
+                    />
+                  )}
                   <textarea
-                    value={cotacaoMotivo}
-                    onChange={(event) => setCotacaoMotivo(event.target.value)}
+                    value={cotacaoObservacao}
+                    onChange={(event) => setCotacaoObservacao(event.target.value)}
                     rows={2}
                     className="w-full rounded-lg bg-slate-900/50 border border-slate-700 p-2 text-slate-100 text-sm"
-                    placeholder="Motivo da rejeição"
+                    placeholder="Observação (opcional)"
                   />
-                )}
-                <textarea
-                  value={cotacaoObservacao}
-                  onChange={(event) => setCotacaoObservacao(event.target.value)}
-                  rows={2}
-                  className="w-full rounded-lg bg-slate-900/50 border border-slate-700 p-2 text-slate-100 text-sm"
-                  placeholder="Observação (opcional)"
-                />
-                <div className="flex justify-end">
-                  <Button
-                    variant="gradient"
-                    onClick={updateCotacaoStatus}
-                    disabled={isUpdatingCotacaoStatus || (cotacaoStatus === "REJEITADA" && !cotacaoMotivo.trim())}
-                  >
-                    {isUpdatingCotacaoStatus ? "Atualizando..." : "Atualizar status"}
-                  </Button>
+                  <div className="flex justify-end">
+                    <Button
+                      variant="gradient"
+                      onClick={updateCotacaoStatus}
+                      disabled={isUpdatingCotacaoStatus || (cotacaoStatus === "REJEITADA" && !cotacaoMotivo.trim())}
+                    >
+                      {isUpdatingCotacaoStatus ? "Atualizando..." : "Atualizar status"}
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -826,7 +905,10 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                   onClick={handleSendCotacao}
                   disabled={
                     isSendingCotacao ||
-                    !(ALLOWED_COTACAO_TRANSITIONS[cotacaoDetail.status] ?? []).includes("ENVIADA")
+                    !(
+                      cotacaoDetail.status === "ENVIADA" ||
+                      (ALLOWED_COTACAO_TRANSITIONS[cotacaoDetail.status] ?? []).includes("ENVIADA")
+                    )
                   }
                 >
                   <Send className="h-4 w-4 mr-2" />
