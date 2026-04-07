@@ -99,4 +99,18 @@ export const ticketsApi = {
     });
     return response.data;
   },
+
+  exportConversationCsv: async (ticketId: string): Promise<Blob> => {
+    const response = await api.get(`/api/v1/tickets/${ticketId}/messages/export/csv`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  exportConversationPdf: async (ticketId: string): Promise<Blob> => {
+    const response = await api.get(`/api/v1/tickets/${ticketId}/messages/export/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
