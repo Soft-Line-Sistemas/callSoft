@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { createPortal } from "react-dom";
 import {
   CalendarDays,
   Check,
@@ -634,68 +635,72 @@ export default function KanbanPage() {
                             >
                               {col.tarefas.map((t, idx) => (
                                 <Draggable draggableId={t.id} index={idx} key={t.id}>
-                                  {(dragProvided, dragSnapshot) => (
-                                    <div
-                                      ref={dragProvided.innerRef}
-                                      {...dragProvided.draggableProps}
-                                      {...dragProvided.dragHandleProps}
-                                      style={dragProvided.draggableProps.style}
-                                      className={`mb-3 p-3 bg-slate-900/80 rounded-2xl shadow-sm cursor-pointer border transition ${
-                                        dragSnapshot.isDragging
-                                          ? "border-purple-400/70 ring-2 ring-purple-400/30"
-                                          : "border-white/10 hover:border-purple-400/40"
-                                      }`}
-                                      onClick={() => setOpenTask(t)}
-                                    >
-                                      <div className="flex items-start justify-between gap-3">
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-sm font-medium text-slate-100 truncate">
-                                            {t.titulo}
+                                  {(dragProvided, dragSnapshot) => {
+                                    const card = (
+                                      <div
+                                        ref={dragProvided.innerRef}
+                                        {...dragProvided.draggableProps}
+                                        {...dragProvided.dragHandleProps}
+                                        style={dragProvided.draggableProps.style}
+                                        className={`mb-3 p-3 bg-slate-900/80 rounded-2xl shadow-sm cursor-pointer border transition ${
+                                          dragSnapshot.isDragging
+                                            ? "border-purple-400/70 ring-2 ring-purple-400/30"
+                                            : "border-white/10 hover:border-purple-400/40"
+                                        }`}
+                                        onClick={() => setOpenTask(t)}
+                                      >
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium text-slate-100 truncate">
+                                              {t.titulo}
+                                            </div>
+                                            {t.descricao && (
+                                              <div className="text-xs text-slate-400 mt-2 line-clamp-2">
+                                                {t.descricao}
+                                              </div>
+                                            )}
+                                            <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                                              {t.dataInicio && (
+                                                <div className="flex items-center gap-1">
+                                                  <Clock size={12} />{" "}
+                                                  <span>{new Date(t.dataInicio).toLocaleDateString()}</span>
+                                                </div>
+                                              )}
+                                              {t.dataFim && (
+                                                <div className="flex items-center gap-1">
+                                                  <CalendarDays size={12} />{" "}
+                                                  <span>{new Date(t.dataFim).toLocaleDateString()}</span>
+                                                </div>
+                                              )}
+                                              {(t.comentarios?.length ?? 0) > 0 && (
+                                                <div className="flex items-center gap-1">
+                                                  <MessageSquare size={12} />
+                                                  <span>{t.comentarios?.length}</span>
+                                                </div>
+                                              )}
+                                            </div>
                                           </div>
-                                          {t.descricao && (
-                                            <div className="text-xs text-slate-400 mt-2 line-clamp-2">
-                                              {t.descricao}
+                                          {getTaskProgress(t) !== null && (
+                                            <div className="ml-2 flex items-center">
+                                              <div
+                                                className="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-semibold text-slate-100"
+                                                style={{
+                                                  background: `conic-gradient(#8b5cf6 ${getTaskProgress(t)}%, rgba(255,255,255,0.12) 0)`,
+                                                }}
+                                                title={`Subtarefas: ${getTaskProgress(t)}%`}
+                                              >
+                                                <span className="h-6 w-6 rounded-full bg-slate-900/90 flex items-center justify-center">
+                                                  {getTaskProgress(t)}%
+                                                </span>
+                                              </div>
                                             </div>
                                           )}
-                                          <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
-                                            {t.dataInicio && (
-                                              <div className="flex items-center gap-1">
-                                                <Clock size={12} />{" "}
-                                                <span>{new Date(t.dataInicio).toLocaleDateString()}</span>
-                                              </div>
-                                            )}
-                                            {t.dataFim && (
-                                              <div className="flex items-center gap-1">
-                                                <CalendarDays size={12} />{" "}
-                                                <span>{new Date(t.dataFim).toLocaleDateString()}</span>
-                                              </div>
-                                            )}
-                                            {(t.comentarios?.length ?? 0) > 0 && (
-                                              <div className="flex items-center gap-1">
-                                                <MessageSquare size={12} />
-                                                <span>{t.comentarios?.length}</span>
-                                              </div>
-                                            )}
-                                          </div>
                                         </div>
-                                        {getTaskProgress(t) !== null && (
-                                          <div className="ml-2 flex items-center">
-                                            <div
-                                              className="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-semibold text-slate-100"
-                                              style={{
-                                                background: `conic-gradient(#8b5cf6 ${getTaskProgress(t)}%, rgba(255,255,255,0.12) 0)`,
-                                              }}
-                                              title={`Subtarefas: ${getTaskProgress(t)}%`}
-                                            >
-                                              <span className="h-6 w-6 rounded-full bg-slate-900/90 flex items-center justify-center">
-                                                {getTaskProgress(t)}%
-                                              </span>
-                                            </div>
-                                          </div>
-                                        )}
                                       </div>
-                                    </div>
-                                  )}
+                                    );
+
+                                    return dragSnapshot.isDragging ? createPortal(card, document.body) : card;
+                                  }}
                                 </Draggable>
                               ))}
 
