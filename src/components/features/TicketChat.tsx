@@ -53,6 +53,38 @@ interface TicketAttachment {
   mimeType: string;
 }
 
+interface CotacaoChatItem {
+  id: string;
+  descricao: string;
+  quantidade: number;
+  unidade?: string | null;
+  precoUnitario?: number | null;
+  precoTotal?: number | null;
+}
+
+interface CotacaoChatSummary {
+  id: string;
+  numero: number;
+  fornecedor?: { nome?: string | null } | null;
+  valorTotal: number | null;
+  prazoEntregaDias: number | null;
+  dataPrevistaEntrega: string | null;
+  observacoes: string | null;
+  itens: CotacaoChatItem[];
+  createdAt?: string;
+}
+
+interface ParsedQuoteMessage {
+  supplier?: string;
+  total?: number;
+  totalCurrency?: string;
+  prazoEntregaDias?: number;
+  entregaPrevista?: string;
+  itensCount?: number;
+  observacoes?: string;
+  locale: "pt-BR" | "en-US";
+}
+
 function parseAttachmentToken(message: string): AttachmentToken | null {
   const trimmed = message.trim();
   const isAttachment = trimmed.startsWith(ATTACHMENT_MESSAGE_PREFIX) && trimmed.endsWith(IMAGE_MESSAGE_SUFFIX);
@@ -64,6 +96,170 @@ function parseAttachmentToken(message: string): AttachmentToken | null {
   const inner = trimmed.slice(prefix.length, -IMAGE_MESSAGE_SUFFIX.length).trim();
   if (!inner) return null;
   return { attachmentId: inner, isLegacyImage };
+}
+
+function normalizeText(value?: string | null): string {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+function parseLocalizedNumber(raw?: string | null): number | undefined {
+  if (!raw) return undefined;
+  const cleaned = raw.replace(/[^\d.,-]/g, "").trim();
+  if (!cleaned) return undefined;
+
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let normalized = cleaned;
+
+  if (hasComma && hasDot) {
+    normalized =
+      cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")
+        ? cleaned.replace(/\./g, "").replace(",", ".")
+        : cleaned.replace(/,/g, "");
+  } else if (hasComma) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else {
+    normalized = cleaned.replace(/,/g, "");
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseQuoteMessage(message: string): ParsedQuoteMessage | null {
+  const lines = message
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!lines.length) return null;
+  const header = lines[0] || "";
+  const isPt = /^Proposta comercial\s+[—-]\s+Ticket\s*#\d+/i.test(header);
+  const isEn = /^Commercial proposal\s+[—-]\s+Ticket\s*#\d+/i.test(header);
+  if (!isPt && !isEn) return null;
+
+  const locale: "pt-BR" | "en-US" = isPt ? "pt-BR" : "en-US";
+
+  const lineByLabel = (pattern: RegExp): string | undefined => {
+    const line = lines.find((entry) => pattern.test(entry));
+    if (!line) return undefined;
+    const split = line.split(":");
+    if (split.length < 2) return undefined;
+    return split.slice(1).join(":").trim();
+  };
+
+  const totalLine = lineByLabel(isPt ? /^Valor total/i : /^Total/i);
+  const totalCurrencyMatch = lines
+    .find((entry) => (isPt ? /^Valor total/i : /^Total/i).test(entry))
+    ?.match(/\(([A-Za-z]{3})\)/);
+
+  const prazoLine = lineByLabel(isPt ? /^Prazo de entrega/i : /^Delivery lead time/i);
+  const prazoEntregaDias = prazoLine ? Number((prazoLine.match(/\d+/) || [])[0]) : undefined;
+  const parsedPrazoEntregaDias = Number.isFinite(prazoEntregaDias) ? prazoEntregaDias : undefined;
+
+  const itensLine = lineByLabel(isPt ? /^Itens/i : /^Items/i);
+  const itensCount = itensLine ? Number((itensLine.match(/\d+/) || [])[0]) : undefined;
+  const parsedItensCount = Number.isFinite(itensCount) ? itensCount : undefined;
+
+  return {
+    supplier: lineByLabel(isPt ? /^Fornecedor/i : /^Supplier/i),
+    total: parseLocalizedNumber(totalLine),
+    totalCurrency: totalCurrencyMatch?.[1]?.toUpperCase(),
+    prazoEntregaDias: parsedPrazoEntregaDias,
+    entregaPrevista: lineByLabel(isPt ? /^Entrega prevista/i : /^Estimated delivery/i),
+    itensCount: parsedItensCount,
+    observacoes: lineByLabel(isPt ? /^Observações/i : /^Notes/i),
+    locale,
+  };
+}
+
+function matchesDateLabel(inputDateLabel: string | undefined, quoteDate: string | null): boolean {
+  if (!inputDateLabel || !quoteDate) return false;
+  const raw = inputDateLabel.trim();
+  if (!raw) return false;
+  const date = new Date(quoteDate);
+  if (Number.isNaN(date.getTime())) return false;
+  return [date.toLocaleDateString("pt-BR"), date.toLocaleDateString("en-US")].includes(raw);
+}
+
+function resolveCotacaoFromMessage(
+  message: string,
+  cotacoes: CotacaoChatSummary[]
+): { parsed: ParsedQuoteMessage; cotacao: CotacaoChatSummary | null } | null {
+  const parsed = parseQuoteMessage(message);
+  if (!parsed) return null;
+  if (!cotacoes.length) return { parsed, cotacao: null };
+
+  const withScore = cotacoes.map((cotacao) => {
+    let score = 0;
+
+    if (parsed.supplier) {
+      const supplierA = normalizeText(parsed.supplier);
+      const supplierB = normalizeText(cotacao.fornecedor?.nome);
+      if (supplierA && supplierB && (supplierA.includes(supplierB) || supplierB.includes(supplierA))) {
+        score += 5;
+      } else {
+        score -= 2;
+      }
+    }
+
+    if (parsed.total != null && cotacao.valorTotal != null) {
+      const diff = Math.abs(Number(cotacao.valorTotal) - parsed.total);
+      if (diff <= 0.5) score += 4;
+      else score -= 1;
+    }
+
+    if (parsed.prazoEntregaDias != null && cotacao.prazoEntregaDias != null) {
+      if (Number(cotacao.prazoEntregaDias) === parsed.prazoEntregaDias) score += 2;
+    }
+
+    if (parsed.entregaPrevista && matchesDateLabel(parsed.entregaPrevista, cotacao.dataPrevistaEntrega)) {
+      score += 2;
+    }
+
+    if (parsed.itensCount != null) {
+      if ((cotacao.itens?.length ?? 0) === parsed.itensCount) score += 3;
+    }
+
+    if (parsed.observacoes && cotacao.observacoes) {
+      const obsA = normalizeText(parsed.observacoes);
+      const obsB = normalizeText(cotacao.observacoes);
+      if (obsA && obsB && (obsA.includes(obsB) || obsB.includes(obsA))) score += 1;
+    }
+
+    return { cotacao, score };
+  });
+
+  withScore.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (
+      new Date(b.cotacao.createdAt || 0).getTime() -
+      new Date(a.cotacao.createdAt || 0).getTime()
+    );
+  });
+
+  const best = withScore[0];
+  return { parsed, cotacao: best?.cotacao ?? null };
+}
+
+function formatItemAmount(
+  value: number | null | undefined,
+  locale: "pt-BR" | "en-US",
+  currency?: string
+): string | null {
+  if (value == null) return null;
+  const curr = currency && /^[A-Z]{3}$/.test(currency) ? currency : undefined;
+  if (!curr) return value.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  try {
+    return value.toLocaleString(locale, { style: "currency", currency: curr });
+  } catch {
+    return value.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
 }
 
 function ChatImage({ ticketId, attachmentId, fileName }: { ticketId: string; attachmentId: string; fileName?: string }) {
@@ -218,6 +414,14 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
       ),
     [ticketAttachments]
   );
+  const { data: ticketCotacoes = [] } = useQuery<CotacaoChatSummary[]>({
+    queryKey: ["ticket-cotacoes-chat", ticketId],
+    queryFn: async () => {
+      const res = await api.get(`/api/v1/tickets/${ticketId}/cotacoes`);
+      return res.data.data ?? [];
+    },
+    enabled: Boolean(ticketId),
+  });
 
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { message: string; isInternal: boolean }) => {
@@ -551,8 +755,56 @@ export function TicketChat({ ticketId, whatsappNumber, canSend = true }: TicketC
                     />
                   );
                 }
+                const quoteData = resolveCotacaoFromMessage(msg.message, ticketCotacoes);
+                const matchedCotacao = quoteData?.cotacao;
+                const quoteLocale = quoteData?.parsed.locale ?? "pt-BR";
+                const quoteCurrency = quoteData?.parsed.totalCurrency;
+
                 return (
-                  <p className="text-sm text-slate-200 whitespace-pre-wrap">{msg.message}</p>
+                  <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
+                    <p className="text-sm text-slate-200 whitespace-pre-wrap flex-1 min-w-0">{msg.message}</p>
+                    {matchedCotacao?.itens?.length ? (
+                      <div className="w-full lg:w-80 shrink-0 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-cyan-300 font-semibold">
+                          Complemento da cotação
+                        </p>
+                        <p className="text-xs text-cyan-100/90 mb-2">
+                          Itens do pedido (fora da mensagem enviada no chat)
+                        </p>
+                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                          {matchedCotacao.itens.map((item, index) => {
+                            const unitAmount = formatItemAmount(
+                              item.precoUnitario,
+                              quoteLocale,
+                              quoteCurrency
+                            );
+                            const totalAmount = formatItemAmount(
+                              item.precoTotal,
+                              quoteLocale,
+                              quoteCurrency
+                            );
+                            return (
+                              <div key={item.id || `${matchedCotacao.id}-${index}`} className="rounded bg-slate-900/40 px-2 py-1.5">
+                                <p className="text-xs text-slate-100 font-medium break-words">
+                                  {index + 1}. {item.descricao}
+                                </p>
+                                <p className="text-[11px] text-slate-300">
+                                  Qtd: {item.quantidade} {item.unidade || "UN"}
+                                </p>
+                                {(unitAmount || totalAmount) && (
+                                  <p className="text-[11px] text-slate-300">
+                                    {unitAmount ? `Unitário: ${unitAmount}` : ""}
+                                    {unitAmount && totalAmount ? " | " : ""}
+                                    {totalAmount ? `Total: ${totalAmount}` : ""}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })()}
             </div>
