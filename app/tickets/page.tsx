@@ -16,6 +16,7 @@ import { CreateTicketModal } from "@/components/modals/CreateTicketModal";
 import { EditTicketModal } from "@/components/modals/EditTicketModal";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { buildWhatsAppSendUrl } from "@/lib/whatsapp";
+import { FaTelegramPlane, FaWhatsapp } from "react-icons/fa";
 
 const STATUS_OPTIONS: Array<{ value: TicketStatus | ""; label: string }> = [
   { value: "", label: "Todos" },
@@ -55,18 +56,54 @@ function prioridadeClass(prioridade?: string | null) {
   }
 }
 
-function origemMeta(origem?: string | null) {
-  switch ((origem || "").toUpperCase()) {
+type TicketChannel = "WHATSAPP" | "TELEGRAM" | "EMAIL" | "WEB" | "PHONE" | "UNKNOWN";
+
+function resolveTicketChannel(ticket: Ticket): TicketChannel {
+  const origem = String(ticket.origem ?? "").toUpperCase();
+  const contact = String(
+    ticket.contatoWpp ??
+      ticket.cliente?.whatsappNumber ??
+      ticket.cliente?.telefone ??
+      ticket.cliente?.email ??
+      "",
+  ).toLowerCase();
+
+  if (contact.startsWith("telegram:") || contact.startsWith("tg:") || origem === "TELEGRAM") return "TELEGRAM";
+  if (contact.startsWith("email:") || contact.includes("@") || origem === "EMAIL") return "EMAIL";
+  if (contact.startsWith("web:") || contact.startsWith("portal:") || origem === "WEB" || origem === "PORTAL") return "WEB";
+  if (contact.startsWith("tel:") || contact.startsWith("phone:") || origem === "TELEFONE" || origem === "PHONE") return "PHONE";
+  if (origem === "WHATSAPP" || contact.length > 0) return "WHATSAPP";
+  return "UNKNOWN";
+}
+
+function resolveContactDisplay(ticket: Ticket, channel: TicketChannel): string {
+  const raw = String(
+    ticket.cliente?.telefone ||
+      ticket.cliente?.whatsappNumber ||
+      ticket.contatoWpp ||
+      ticket.cliente?.email ||
+      "",
+  ).trim();
+
+  if (channel === "TELEGRAM") return raw.replace(/^(telegram:|tg:)/i, "").trim() || raw || "--";
+  if (channel === "EMAIL") return raw.replace(/^email:/i, "").trim() || ticket.cliente?.email || raw || "--";
+  return raw || "--";
+}
+
+function channelMeta(channel: TicketChannel) {
+  switch (channel) {
     case "WHATSAPP":
-      return { label: "WhatsApp", icon: MessageCircle, className: "text-green-400" };
+      return { label: "WhatsApp", icon: <FaWhatsapp className="h-3.5 w-3.5" />, className: "text-green-400" };
+    case "TELEGRAM":
+      return { label: "Telegram", icon: <FaTelegramPlane className="h-3.5 w-3.5" />, className: "text-sky-400" };
     case "EMAIL":
-      return { label: "Email", icon: Mail, className: "text-sky-400" };
-    case "TELEFONE":
-      return { label: "Telefone", icon: Phone, className: "text-amber-300" };
+      return { label: "E-mail", icon: <Mail className="h-3.5 w-3.5" />, className: "text-sky-400" };
+    case "PHONE":
+      return { label: "Telefone", icon: <Phone className="h-3.5 w-3.5" />, className: "text-amber-300" };
     case "WEB":
-      return { label: "Web", icon: Globe, className: "text-violet-300" };
+      return { label: "Web", icon: <Globe className="h-3.5 w-3.5" />, className: "text-violet-300" };
     default:
-      return { label: "Origem não informada", icon: Globe, className: "text-slate-400" };
+      return { label: "Origem não informada", icon: <Globe className="h-3.5 w-3.5" />, className: "text-slate-400" };
   }
 }
 
@@ -407,8 +444,8 @@ export default function TicketsPage() {
                       </tr>
                     ) : (
                       tickets.map((ticket) => {
-                        const origem = origemMeta(ticket.origem);
-                        const OrigemIcon = origem.icon;
+                        const channel = resolveTicketChannel(ticket);
+                        const origem = channelMeta(channel);
 
                         return (
                           <tr
@@ -439,7 +476,7 @@ export default function TicketsPage() {
                                     title={`Origem: ${origem.label}`}
                                     aria-label={`Origem: ${origem.label}`}
                                   >
-                                    <OrigemIcon className={`h-3.5 w-3.5 ${origem.className}`} />
+                                    <span className={origem.className}>{origem.icon}</span>
                                   </span>
                                   <span className="font-medium text-white truncate max-w-[150px]" title={ticket.cliente?.nome || ticket.contatoWpp}>
                                     {ticket.cliente?.nome || ticket.contatoWpp || "--"}
@@ -448,7 +485,7 @@ export default function TicketsPage() {
 
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-slate-400 truncate max-w-[170px]">
-                                    {ticket.cliente?.telefone || ticket.cliente?.whatsappNumber || ticket.contatoWpp || "--"}
+                                    {resolveContactDisplay(ticket, channel)}
                                   </span>
                                   <div className="flex items-center gap-1">
                                     <button
@@ -461,7 +498,7 @@ export default function TicketsPage() {
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
                                     </button>
-                                    {(ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
+                                    {channel === "WHATSAPP" && (ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -535,8 +572,8 @@ export default function TicketsPage() {
                 </div>
               ) : (
                 tickets.map((ticket) => {
-                  const origem = origemMeta(ticket.origem);
-                  const OrigemIcon = origem.icon;
+                  const channel = resolveTicketChannel(ticket);
+                  const origem = channelMeta(channel);
 
                   return (
                     <div key={ticket.id} className="glass rounded-lg p-4 border border-white/10 hover:border-white/20 transition-colors">
@@ -591,13 +628,13 @@ export default function TicketsPage() {
                             title={`Origem: ${origem.label}`}
                             aria-label={`Origem: ${origem.label}`}
                           >
-                            <OrigemIcon className={`h-3.5 w-3.5 ${origem.className}`} />
+                            <span className={origem.className}>{origem.icon}</span>
                           </span>
                           <span className="text-slate-300">{ticket.cliente?.nome || ticket.contatoWpp || "--"}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-400 truncate">
-                            {ticket.cliente?.telefone || ticket.cliente?.whatsappNumber || ticket.contatoWpp || "--"}
+                            {resolveContactDisplay(ticket, channel)}
                           </span>
                           <button
                             onClick={(e) => {
@@ -609,7 +646,7 @@ export default function TicketsPage() {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          {(ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
+                          {channel === "WHATSAPP" && (ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
