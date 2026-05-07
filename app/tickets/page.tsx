@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Ticket, type TicketListResponse, type TicketStatus } from "@/lib/api";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Filter, Search, Eye, KanbanSquare, Loader2, MessageCircle, Mail, Pencil, Phone, Globe } from "lucide-react";
+import { Filter, Search, Eye, KanbanSquare, Loader2, MessageCircle, Mail, Pencil, Phone, Globe, LayoutGrid, Table } from "lucide-react";
 import { useNotificationStore } from "@/store/notificationStore";
 import { CreateTicketModal } from "@/components/modals/CreateTicketModal";
 import { EditTicketModal } from "@/components/modals/EditTicketModal";
@@ -71,6 +71,8 @@ function origemMeta(origem?: string | null) {
 }
 
 export default function TicketsPage() {
+  type TicketsViewMode = "table" | "cards";
+  const TICKETS_VIEW_STORAGE_KEY = "tickets:view-mode";
   const router = useRouter();
   const { addNotification } = useNotificationStore();
 
@@ -89,6 +91,7 @@ export default function TicketsPage() {
   const [hasLinkedKanban, setHasLinkedKanban] = useState(false);
   const [didSelectKanban, setDidSelectKanban] = useState(false);
   const [editTicket, setEditTicket] = useState<Ticket | null>(null);
+  const [viewMode, setViewMode] = useState<TicketsViewMode>("cards");
 
   // Debounce do campo de texto para evitar requisições excessivas
   const debouncedText = useDebouncedValue(text, 500);
@@ -272,6 +275,26 @@ export default function TicketsPage() {
     }
   };
 
+  useEffect(() => {
+    try {
+      const storedView = window.localStorage.getItem(TICKETS_VIEW_STORAGE_KEY);
+      if (storedView === "table" || storedView === "cards") {
+        setViewMode(storedView);
+      }
+    } catch (error) {
+      console.error("Erro ao ler preferência de visualização de tickets", error);
+    }
+  }, []);
+
+  const handleChangeViewMode = (mode: TicketsViewMode) => {
+    setViewMode(mode);
+    try {
+      window.localStorage.setItem(TICKETS_VIEW_STORAGE_KEY, mode);
+    } catch (error) {
+      console.error("Erro ao salvar preferência de visualização de tickets", error);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <Sidebar />
@@ -286,6 +309,26 @@ export default function TicketsPage() {
             </div>
 
             <div className="flex flex-row gap-3 items-center">
+              <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-1">
+                <Button
+                  variant={viewMode === "table" ? "outline" : "ghost"}
+                  size="sm"
+                  onClick={() => handleChangeViewMode("table")}
+                  className="h-8"
+                >
+                  <Table className="h-4 w-4 mr-2" />
+                  Tabela
+                </Button>
+                <Button
+                  variant={viewMode === "cards" ? "outline" : "ghost"}
+                  size="sm"
+                  onClick={() => handleChangeViewMode("cards")}
+                  className="h-8"
+                >
+                  <LayoutGrid className="h-4 w-4 mr-2" />
+                  Cards
+                </Button>
+              </div>
               <Button
                 variant="outline"
                 onClick={() => {
@@ -332,9 +375,10 @@ export default function TicketsPage() {
             </div>
           </div>
 
-          <div className="glass rounded-lg overflow-hidden animate-slide-up">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+          {viewMode === "table" ? (
+            <div className="glass rounded-lg overflow-hidden animate-slide-up">
+              <div className="overflow-x-auto">
+                <table className="w-full">
                 <thead className="border-b border-white/10">
                   <tr>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Pedido</th>
@@ -347,138 +391,257 @@ export default function TicketsPage() {
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Criado</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-300">Ações</th>
                   </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-400">
-                        Carregando tickets...
-                      </td>
-                    </tr>
-                  ) : tickets.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-400">
-                        Nenhum ticket encontrado.
-                      </td>
-                    </tr>
-                  ) : (
-                    tickets.map((ticket) => {
-                      const origem = origemMeta(ticket.origem);
-                      const OrigemIcon = origem.icon;
+                  </thead>
+                  <tbody>
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-slate-400">
+                          Carregando tickets...
+                        </td>
+                      </tr>
+                    ) : tickets.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-slate-400">
+                          Nenhum ticket encontrado.
+                        </td>
+                      </tr>
+                    ) : (
+                      tickets.map((ticket) => {
+                        const origem = origemMeta(ticket.origem);
+                        const OrigemIcon = origem.icon;
 
-                      return (
-                        <tr
-                          key={ticket.id}
-                          className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                        >
-                        <td className="p-4 text-sm text-white font-medium">#{ticket.pedido}</td>
-                        <td className="p-4 text-sm text-slate-300">{ticket.empresa ?? "--"}</td>
-                        <td className="p-4 text-sm text-slate-300">{ticket.responsavel ?? "--"}</td>
-                        <td className="p-4 text-sm">
-                          <Badge variant={statusBadgeVariant(ticket.status)}>
-                            {ticket.status.replace(/_/g, " ")}
-                          </Badge>
-                        </td>
-                        <td className="p-4 text-sm">
-                          <span className={prioridadeClass(ticket.prioridade)}>
-                            {ticket.prioridade ?? "--"}
-                          </span>
-                        </td>
-                        <td className="p-4 text-sm text-slate-300 max-w-xs truncate" title={ticket.solicitacao || ""}>
-                          {ticket.solicitacao ? ticket.solicitacao : "--"}
-                        </td>
-                          <td className="p-4 text-sm text-slate-300">
-                            <div className="flex flex-col gap-1.5">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="inline-flex items-center justify-center rounded-full bg-white/5 p-1"
-                                  title={`Origem: ${origem.label}`}
-                                  aria-label={`Origem: ${origem.label}`}
-                                >
-                                  <OrigemIcon className={`h-3.5 w-3.5 ${origem.className}`} />
-                                </span>
-                                <span className="font-medium text-white truncate max-w-[150px]" title={ticket.cliente?.nome || ticket.contatoWpp}>
-                                  {ticket.cliente?.nome || ticket.contatoWpp || "--"}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-slate-400 truncate max-w-[170px]">
-                                  {ticket.cliente?.telefone || ticket.cliente?.whatsappNumber || ticket.contatoWpp || "--"}
-                                </span>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditTicket(ticket);
-                                    }}
-                                    className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5 transition-colors"
-                                    title="Editar"
+                        return (
+                          <tr
+                            key={ticket.id}
+                            className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                          >
+                          <td className="p-4 text-sm text-white font-medium">#{ticket.pedido}</td>
+                          <td className="p-4 text-sm text-slate-300">{ticket.empresa ?? "--"}</td>
+                          <td className="p-4 text-sm text-slate-300">{ticket.responsavel ?? "--"}</td>
+                          <td className="p-4 text-sm">
+                            <Badge variant={statusBadgeVariant(ticket.status)}>
+                              {ticket.status.replace(/_/g, " ")}
+                            </Badge>
+                          </td>
+                          <td className="p-4 text-sm">
+                            <span className={prioridadeClass(ticket.prioridade)}>
+                              {ticket.prioridade ?? "--"}
+                            </span>
+                          </td>
+                          <td className="p-4 text-sm text-slate-300 max-w-xs truncate" title={ticket.solicitacao || ""}>
+                            {ticket.solicitacao ? ticket.solicitacao : "--"}
+                          </td>
+                            <td className="p-4 text-sm text-slate-300">
+                              <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="inline-flex items-center justify-center rounded-full bg-white/5 p-1"
+                                    title={`Origem: ${origem.label}`}
+                                    aria-label={`Origem: ${origem.label}`}
                                   >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                  {(ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
+                                    <OrigemIcon className={`h-3.5 w-3.5 ${origem.className}`} />
+                                  </span>
+                                  <span className="font-medium text-white truncate max-w-[150px]" title={ticket.cliente?.nome || ticket.contatoWpp}>
+                                    {ticket.cliente?.nome || ticket.contatoWpp || "--"}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-slate-400 truncate max-w-[170px]">
+                                    {ticket.cliente?.telefone || ticket.cliente?.whatsappNumber || ticket.contatoWpp || "--"}
+                                  </span>
+                                  <div className="flex items-center gap-1">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleWhatsApp(ticket);
+                                        setEditTicket(ticket);
                                       }}
-                                      className="text-green-400 hover:text-green-300 p-1 rounded hover:bg-white/5 transition-colors"
-                                      title="WhatsApp"
+                                      className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5 transition-colors"
+                                      title="Editar"
                                     >
-                                      <MessageCircle className="h-4 w-4" />
+                                      <Pencil className="h-3.5 w-3.5" />
                                     </button>
-                                  )}
-                                  {ticket.cliente?.email && (
-                                    <a
-                                      href={`mailto:${ticket.cliente.email}`}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="text-sky-400 hover:text-sky-300 p-1 rounded hover:bg-white/5 transition-colors"
-                                      title={ticket.cliente.email}
-                                    >
-                                      <Mail className="h-4 w-4" />
-                                    </a>
-                                  )}
+                                    {(ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleWhatsApp(ticket);
+                                        }}
+                                        className="text-green-400 hover:text-green-300 p-1 rounded hover:bg-white/5 transition-colors"
+                                        title="WhatsApp"
+                                      >
+                                        <MessageCircle className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                    {ticket.cliente?.email && (
+                                      <a
+                                        href={`mailto:${ticket.cliente.email}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-sky-400 hover:text-sky-300 p-1 rounded hover:bg-white/5 transition-colors"
+                                        title={ticket.cliente.email}
+                                      >
+                                        <Mail className="h-4 w-4" />
+                                      </a>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
+                            </td>
+                          <td className="p-4 text-sm text-slate-400">
+                            {new Date(ticket.createdAt).toLocaleString("pt-BR")}
+                          </td>
+                          <td className="p-4 text-sm">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => router.push(`/tickets/${ticket.id}`)}
+                                title="Detalhes"
+                              >
+                                <Eye className="h-5 w-5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleCreateKanbanTask(ticket)}
+                                title="Criar tarefa no Kanban (Suporte)"
+                                disabled={creatingKanbanFor === ticket.id}
+                              >
+                                {creatingKanbanFor === ticket.id ? (
+                                  <Loader2 className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <KanbanSquare className="h-5 w-5 text-indigo-300" />
+                                )}
+                              </Button>
                             </div>
                           </td>
-                        <td className="p-4 text-sm text-slate-400">
-                          {new Date(ticket.createdAt).toLocaleString("pt-BR")}
-                        </td>
-                        <td className="p-4 text-sm">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => router.push(`/tickets/${ticket.id}`)}
-                              title="Detalhes"
-                            >
-                              <Eye className="h-5 w-5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleCreateKanbanTask(ticket)}
-                              title="Criar tarefa no Kanban (Suporte)"
-                              disabled={creatingKanbanFor === ticket.id}
-                            >
-                              {creatingKanbanFor === ticket.id ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                              ) : (
-                                <KanbanSquare className="h-5 w-5 text-indigo-300" />
-                              )}
-                            </Button>
-                          </div>
-                        </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3 animate-slide-up">
+              {isLoading ? (
+                <div className="glass rounded-lg p-8 text-center text-slate-400 md:col-span-2 2xl:col-span-3">
+                  Carregando tickets...
+                </div>
+              ) : tickets.length === 0 ? (
+                <div className="glass rounded-lg p-8 text-center text-slate-400 md:col-span-2 2xl:col-span-3">
+                  Nenhum ticket encontrado.
+                </div>
+              ) : (
+                tickets.map((ticket) => {
+                  const origem = origemMeta(ticket.origem);
+                  const OrigemIcon = origem.icon;
+
+                  return (
+                    <div key={ticket.id} className="glass rounded-lg p-4 border border-white/10 hover:border-white/20 transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm text-slate-400">Pedido</p>
+                          <p className="text-base font-semibold text-white">#{ticket.pedido}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.push(`/tickets/${ticket.id}`)}
+                            title="Detalhes"
+                          >
+                            <Eye className="h-5 w-5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCreateKanbanTask(ticket)}
+                            title="Criar tarefa no Kanban (Suporte)"
+                            disabled={creatingKanbanFor === ticket.id}
+                          >
+                            {creatingKanbanFor === ticket.id ? (
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                              <KanbanSquare className="h-5 w-5 text-indigo-300" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Badge variant={statusBadgeVariant(ticket.status)}>{ticket.status.replace(/_/g, " ")}</Badge>
+                        <span className={prioridadeClass(ticket.prioridade)}>{ticket.prioridade ?? "--"}</span>
+                      </div>
+
+                      <div className="mt-4 space-y-2 text-sm">
+                        <p className="text-slate-300">
+                          <span className="text-slate-400">Empresa:</span> {ticket.empresa ?? "--"}
+                        </p>
+                        <p className="text-slate-300">
+                          <span className="text-slate-400">Responsável:</span> {ticket.responsavel ?? "--"}
+                        </p>
+                        <p className="text-slate-300 line-clamp-2" title={ticket.solicitacao || ""}>
+                          <span className="text-slate-400">Solicitação:</span> {ticket.solicitacao || "--"}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="inline-flex items-center justify-center rounded-full bg-white/5 p-1"
+                            title={`Origem: ${origem.label}`}
+                            aria-label={`Origem: ${origem.label}`}
+                          >
+                            <OrigemIcon className={`h-3.5 w-3.5 ${origem.className}`} />
+                          </span>
+                          <span className="text-slate-300">{ticket.cliente?.nome || ticket.contatoWpp || "--"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 truncate">
+                            {ticket.cliente?.telefone || ticket.cliente?.whatsappNumber || ticket.contatoWpp || "--"}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditTicket(ticket);
+                            }}
+                            className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5 transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          {(ticket.cliente?.whatsappNumber || ticket.contatoWpp) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleWhatsApp(ticket);
+                              }}
+                              className="text-green-400 hover:text-green-300 p-1 rounded hover:bg-white/5 transition-colors"
+                              title="WhatsApp"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </button>
+                          )}
+                          {ticket.cliente?.email && (
+                            <a
+                              href={`mailto:${ticket.cliente.email}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-sky-400 hover:text-sky-300 p-1 rounded hover:bg-white/5 transition-colors"
+                              title={ticket.cliente.email}
+                            >
+                              <Mail className="h-4 w-4" />
+                            </a>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {new Date(ticket.createdAt).toLocaleString("pt-BR")}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       </main>
 

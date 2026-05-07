@@ -58,6 +58,9 @@ type TicketDetail = {
     valorTotal: number | null;
     prazoEntregaDias?: number | null;
     dataPrevistaEntrega?: string | null;
+    dataExpiracao?: string | null;
+    observacoes?: string | null;
+    itensCount?: number;
     createdAt: string;
   }>;
 };
@@ -411,18 +414,117 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
               .filter(Boolean)
               .join("\n");
 
-      await api.post(`/api/v1/cotacoes/${cotacaoDetail.id}/send-whatsapp`, {
+      const sendResponse = await api.post(`/api/v1/cotacoes/${cotacaoDetail.id}/send`, {
         message,
       });
+      const channel = sendResponse?.data?.data?.channel;
 
       addNotification({
         title: "Proposta enviada",
-        message: "A proposta foi enviada via WhatsApp com anexos PDF e XLSX, e o status foi atualizado.",
+        message:
+          channel === "EMAIL"
+            ? "A proposta foi enviada por email com anexos PDF e XLSX, e o status foi atualizado."
+            : "A proposta foi enviada via WhatsApp com anexos PDF e XLSX, e o status foi atualizado.",
         type: "success",
         category: "system",
       });
       await refetch();
       await refetchCotacao();
+    } catch (error: any) {
+      addNotification({
+        title: "Erro",
+        message: error?.response?.data?.message || "Falha ao enviar a cotação.",
+        type: "error",
+        category: "system",
+      });
+    } finally {
+      setIsSendingCotacao(false);
+    }
+  };
+
+  const handleSendCotacaoCard = async (cotacao: NonNullable<TicketDetail["cotacoes"]>[number]) => {
+    if (!ticket) return;
+    const canSend =
+      cotacao.status === "ENVIADA" ||
+      (ALLOWED_COTACAO_TRANSITIONS[cotacao.status] ?? []).includes("ENVIADA");
+    if (!canSend) {
+      addNotification({
+        title: "Status inválido",
+        message: `Não é possível enviar uma cotação em status ${cotacao.status}.`,
+        type: "error",
+        category: "system",
+      });
+      return;
+    }
+
+    setIsSendingCotacao(true);
+    try {
+      if (cotacao.status !== "ENVIADA") {
+        await api.post(`/api/v1/cotacoes/${cotacao.id}/status`, {
+          status: "ENVIADA",
+          observacao: "Proposta comercial enviada a partir do card da cotação",
+        });
+      }
+
+      const formatCurrency = (value: number | null | undefined) =>
+        value != null ? value.toLocaleString(cotacaoLocale, { style: "currency", currency: cotacaoCurrency }) : "--";
+
+      const formatDate = (value?: string | null) =>
+        value ? new Date(value).toLocaleDateString(cotacaoLocale) : "--";
+
+      const prazo =
+        cotacao.prazoEntregaDias == null
+          ? "--"
+          : cotacaoLocale === "pt-BR"
+            ? `${cotacao.prazoEntregaDias} dias`
+            : `${cotacao.prazoEntregaDias} days`;
+
+      const message =
+        cotacaoLocale === "pt-BR"
+          ? [
+              `Proposta comercial — Ticket #${ticket.pedido}`,
+              `Ticket: #${ticket.pedido}`,
+              `Fornecedor: ${cotacao.fornecedor?.nome ?? "--"}`,
+              `Valor total (${cotacaoCurrency}): ${formatCurrency(cotacao.valorTotal)}`,
+              `Prazo de entrega: ${prazo}`,
+              `Entrega prevista: ${formatDate(cotacao.dataPrevistaEntrega)}`,
+              `Itens: ${cotacao.itensCount ?? "--"}`,
+              cotacao.observacoes?.trim() ? `Observações: ${cotacao.observacoes.trim()}` : null,
+            ]
+              .filter(Boolean)
+              .join("\n")
+          : [
+              `Commercial proposal — Ticket #${ticket.pedido}`,
+              `Ticket: #${ticket.pedido}`,
+              `Supplier: ${cotacao.fornecedor?.nome ?? "--"}`,
+              `Total (${cotacaoCurrency}): ${formatCurrency(cotacao.valorTotal)}`,
+              `Delivery lead time: ${prazo}`,
+              `Estimated delivery: ${formatDate(cotacao.dataPrevistaEntrega)}`,
+              `Items: ${cotacao.itensCount ?? "--"}`,
+              cotacao.observacoes?.trim() ? `Notes: ${cotacao.observacoes.trim()}` : null,
+            ]
+              .filter(Boolean)
+              .join("\n");
+
+      const sendResponse = await api.post(`/api/v1/cotacoes/${cotacao.id}/send`, {
+        message,
+      });
+      const channel = sendResponse?.data?.data?.channel;
+
+      addNotification({
+        title: "Proposta enviada",
+        message:
+          channel === "EMAIL"
+            ? "A proposta foi enviada por email com anexos PDF e XLSX."
+            : "A proposta foi enviada via WhatsApp com anexos PDF e XLSX.",
+        type: "success",
+        category: "system",
+      });
+
+      await refetch();
+      if (selectedCotacaoId === cotacao.id) {
+        await refetchCotacao();
+      }
     } catch (error: any) {
       addNotification({
         title: "Erro",
@@ -657,12 +759,54 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                       <div className="space-y-3">
                         {ticket.cotacoes.map((c) => (
                           <div key={c.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
-                            <p className="text-sm text-slate-200 font-medium">Cotação #{c.numero}</p>
-                            <p className="text-xs text-slate-400">Fornecedor: {c.fornecedor.nome}</p>
-                            <p className="text-xs text-slate-400">Status: {c.status}</p>
-                            <p className="text-xs text-slate-400">
-                              Valor: {c.valorTotal != null ? c.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "--"}
-                            </p>
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm text-slate-200 font-medium">Cotação #{c.numero}</p>
+                                  <Badge variant="info">{c.status.replace(/_/g, " ")}</Badge>
+                                </div>
+                                <div className="grid grid-cols-1 gap-1 text-xs text-slate-400 md:grid-cols-2">
+                                  <p>Fornecedor: {c.fornecedor.nome}</p>
+                                  <p>
+                                    Valor: {c.valorTotal != null ? c.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "--"}
+                                  </p>
+                                  <p>
+                                    Prazo: {c.prazoEntregaDias != null ? `${c.prazoEntregaDias} dias` : "--"}
+                                  </p>
+                                  <p>
+                                    Entrega prevista: {c.dataPrevistaEntrega ? new Date(c.dataPrevistaEntrega).toLocaleDateString("pt-BR") : "--"}
+                                  </p>
+                                  <p>
+                                    Emitida em: {new Date(c.createdAt).toLocaleDateString("pt-BR")}
+                                  </p>
+                                  <p>
+                                    Itens: {c.itensCount ?? "--"}
+                                  </p>
+                                  <p>
+                                    Expira em: {c.dataExpiracao ? new Date(c.dataExpiracao).toLocaleDateString("pt-BR") : "--"}
+                                  </p>
+                                  <p>
+                                    Canal de envio: {isEmailContact(ticket.contatoWpp) ? "Email" : "WhatsApp"}
+                                  </p>
+                                </div>
+                                {c.observacoes?.trim() ? (
+                                  <p className="text-xs text-slate-300">
+                                    Observações: <span className="text-slate-400">{c.observacoes.trim()}</span>
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div className="flex flex-wrap gap-2 lg:justify-end">
+                                <Button
+                                  variant="gradient"
+                                  size="sm"
+                                  onClick={() => handleSendCotacaoCard(c)}
+                                  disabled={isSendingCotacao}
+                                >
+                                  <Send className="h-4 w-4 mr-2" />
+                                  Enviar
+                                </Button>
+                              </div>
+                            </div>
                             <div className="mt-3 flex flex-wrap gap-2">
                               <Button
                                 variant="outline"
